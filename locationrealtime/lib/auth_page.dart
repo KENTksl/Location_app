@@ -13,6 +13,7 @@ class _AuthPageState extends State<AuthPage>
   late TabController _tabController;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   String _message = '';
 
   @override
@@ -26,6 +27,7 @@ class _AuthPageState extends State<AuthPage>
     _tabController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -42,6 +44,13 @@ class _AuthPageState extends State<AuthPage>
   }
 
   Future<void> _signUp() async {
+    // Kiểm tra xác nhận mật khẩu
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      setState(() => _message = 'Mật khẩu xác nhận không khớp!');
+      return;
+    }
+
     try {
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -68,15 +77,12 @@ class _AuthPageState extends State<AuthPage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildForm(_signIn, 'Đăng nhập'),
-          _buildForm(_signUp, 'Đăng ký'),
-        ],
+        children: [_buildSignInForm(), _buildSignUpForm()],
       ),
     );
   }
 
-  Widget _buildForm(Function() onPressed, String buttonText) {
+  Widget _buildSignInForm() {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -93,7 +99,38 @@ class _AuthPageState extends State<AuthPage>
             obscureText: true,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: onPressed, child: Text(buttonText)),
+          ElevatedButton(onPressed: _signIn, child: const Text('Đăng nhập')),
+          const SizedBox(height: 16),
+          Text(_message, style: const TextStyle(color: Colors.red)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignUpForm() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _passwordController,
+            decoration: const InputDecoration(labelText: 'Mật khẩu'),
+            obscureText: true,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _confirmPasswordController,
+            decoration: const InputDecoration(labelText: 'Xác nhận mật khẩu'),
+            obscureText: true,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(onPressed: _signUp, child: const Text('Đăng ký')),
           const SizedBox(height: 16),
           Text(_message, style: const TextStyle(color: Colors.red)),
         ],
