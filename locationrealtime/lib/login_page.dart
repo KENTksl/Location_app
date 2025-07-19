@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_page.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -48,27 +49,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _forgotPassword() async {
-    if (_emailController.text.trim().isEmpty) {
-      setState(() => _message = 'Vui lòng nhập email để đặt lại mật khẩu!');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _message = '';
-    });
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _emailController.text.trim(),
-      );
-      setState(() => _message = 'Email đặt lại mật khẩu đã được gửi!');
-    } catch (e) {
-      setState(() => _message = 'Lỗi gửi email: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  void _navigateToForgotPassword() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
+    );
   }
 
   @override
@@ -115,7 +100,7 @@ class _LoginPageState extends State<LoginPage> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: _forgotPassword,
+                onPressed: _navigateToForgotPassword,
                 child: const Text('Quên mật khẩu?'),
               ),
             ),
@@ -135,9 +120,7 @@ class _LoginPageState extends State<LoginPage> {
               Text(
                 _message,
                 style: TextStyle(
-                  color:
-                      _message.contains('thành công') ||
-                          _message.contains('gửi')
+                  color: _message.contains('thành công')
                       ? Colors.green
                       : Colors.red,
                 ),
