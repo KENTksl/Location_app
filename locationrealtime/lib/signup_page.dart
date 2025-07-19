@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_model.dart';
+import '../services/database_service.dart';
 import 'login_page.dart';
 
 class SignupPage extends StatefulWidget {
@@ -10,14 +12,17 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _databaseService = DatabaseService();
   String _message = '';
   bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -26,7 +31,8 @@ class _SignupPageState extends State<SignupPage> {
 
   Future<void> _signUp() async {
     // Kiểm tra các trường bắt buộc
-    if (_emailController.text.trim().isEmpty ||
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
         _confirmPasswordController.text.trim().isEmpty) {
       setState(() => _message = 'Vui lòng nhập đầy đủ thông tin!');
@@ -52,10 +58,26 @@ class _SignupPageState extends State<SignupPage> {
     });
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      // Tạo user trong Firebase Auth
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+
+      // Tạo user model và lưu vào database
+      final user = UserModel(
+        uid: userCredential.user!.uid,
         email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        displayName: _nameController.text.trim(),
+        role: 'employee', // Mặc định là employee
+        createdAt: DateTime.now(),
+        lastLoginAt: DateTime.now(),
+        permissions: {'view_locations': true, 'share_location': true},
       );
+
+      await _databaseService.createUser(user);
+
       setState(() => _message = 'Đăng ký thành công!');
 
       // Chờ một chút để hiển thị thông báo thành công
@@ -96,6 +118,15 @@ class _SignupPageState extends State<SignupPage> {
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 32),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Họ và tên',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(

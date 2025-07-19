@@ -40,8 +40,7 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      setState(() => _message = 'Đăng nhập thành công!');
-      // TODO: Navigate to main app
+      // Đăng nhập thành công, AuthWrapper sẽ tự động chuyển đến MapPage
     } catch (e) {
       setState(() => _message = 'Lỗi đăng nhập: $e');
     } finally {
