@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "859885621505",
+    "firebase_url": "https://locationrealtime-30c51-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "locationrealtime-30c51",
+    "storage_bucket": "locationrealtime-30c51.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859885621505:android:84745678410ce68e9e8b00",
+        "android_client_info": {
+          "package_name": "com.example.locationrealtime"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhNAvkGQb9LoO_gvx8JFnPbyVCUuQy4hw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
