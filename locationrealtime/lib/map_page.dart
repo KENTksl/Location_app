@@ -23,7 +23,7 @@ class _MapPageState extends State<MapPage> {
   LatLng? _currentPosition;
   final LatLng _defaultCenter = const LatLng(21.0285, 105.8542); // Hà Nội
   Set<Marker> _markers = {};
-  Map<String, StreamSubscription> _locationStreams = {};
+  Map<String, List<StreamSubscription>> _locationStreams = {};
   bool _isLoading = true;
 
   @override
@@ -49,8 +49,10 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
-    for (var subscription in _locationStreams.values) {
-      subscription.cancel();
+    for (var subs in _locationStreams.values) {
+      for (var sub in subs) {
+        sub.cancel();
+      }
     }
     super.dispose();
   }
@@ -70,7 +72,8 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _listenToFriendLocation(String friendId) async {
-    _locationStreams[friendId]?.cancel();
+    // Hủy các subscription cũ nếu có
+    _locationStreams[friendId]?.forEach((sub) => sub.cancel());
     final locationRef = FirebaseDatabase.instance.ref('locations/$friendId');
     final onlineRef = FirebaseDatabase.instance.ref('online/$friendId');
     final userSnap = await FirebaseDatabase.instance.ref('users/$friendId').get();
@@ -116,8 +119,7 @@ class _MapPageState extends State<MapPage> {
       updateMarker(isOnline, lastLocationSnap);
     });
 
-    _locationStreams[friendId]?.cancel();
-    _locationStreams[friendId] = StreamGroup.merge([onlineSub!, locationSub!]).listen((_) {});
+    _locationStreams[friendId] = [onlineSub, locationSub];
   }
 
   Future<void> _getCurrentLocation() async {
