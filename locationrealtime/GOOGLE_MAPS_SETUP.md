@@ -41,7 +41,6 @@ Thay thế trong file `lib/utils/maps_config.dart`:
 ```dart
 static const String googleMapsApiKey = 'YOUR_ACTUAL_API_KEY_HERE';
 ```
-
 ## Bước 5: Giới hạn API Key (Khuyến nghị)
 
 1. Trong Google Cloud Console, click vào API key

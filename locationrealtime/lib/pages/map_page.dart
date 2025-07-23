@@ -25,13 +25,15 @@ class _MapPageState extends State<MapPage> {
   List<UserModel> _users = [];
   UserModel? _currentUser;
 
+  CameraPosition? _initialCameraPosition;
   bool _isTracking = false;
   bool _isLoading = true;
   String _errorMessage = '';
+  LocationModel? _pendingCameraLocation;
 
-  // Camera position mặc định (Hà Nội)
+  // Camera position mặc định (Hồ Chí Minh)
   static const CameraPosition _defaultPosition = CameraPosition(
-    target: LatLng(21.0285, 105.8542),
+    target: LatLng(10.7769, 106.7009), // Hồ Chí Minh
     zoom: 12.0,
   );
 
@@ -45,6 +47,9 @@ class _MapPageState extends State<MapPage> {
     try {
       setState(() => _isLoading = true);
 
+      // Luôn đặt mặc định là Hồ Chí Minh
+      _initialCameraPosition = _defaultPosition;
+
       // Lấy thông tin người dùng hiện tại
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -55,11 +60,43 @@ class _MapPageState extends State<MapPage> {
       _locationService.onLocationUpdate = _onLocationUpdate;
       _locationService.onError = _onLocationError;
 
+      // Chủ động lấy vị trí hiện tại của thiết bị và lưu vào database
+      if (_currentUser != null) {
+        await _locationService.getCurrentLocation(
+          userId: _currentUser!.uid,
+          userName: _currentUser!.displayName,
+        );
+      }
+
       // Lấy tất cả vị trí hiện tại
       await _loadCurrentLocations();
 
       // Lấy danh sách người dùng
       await _loadUsers();
+
+      // Tìm vị trí hiện tại của user
+      LocationModel? myLocation;
+      if (_currentUser != null) {
+        try {
+          myLocation = _locations.firstWhere(
+            (l) => l.userId == _currentUser!.uid,
+          );
+        } catch (_) {
+          myLocation = null;
+        }
+        // Chỉ animate camera nếu vị trí hợp lệ (không phải 0,0)
+        if (myLocation != null &&
+            (myLocation.latitude.abs() > 0.0001 ||
+                myLocation.longitude.abs() > 0.0001)) {
+          if (_mapController != null) {
+            _mapController!.animateCamera(
+              CameraUpdate.newLatLngZoom(myLocation.latLng, 16.0),
+            );
+          } else {
+            _pendingCameraLocation = myLocation;
+          }
+        }
+      }
 
       // Tạo markers
       _createMarkers();
@@ -105,15 +142,23 @@ class _MapPageState extends State<MapPage> {
         ),
       );
 
+      // Nếu là user hiện tại, dùng icon khác biệt
+      final isCurrentUser =
+          _currentUser != null && location.userId == _currentUser!.uid;
+
       final marker = Marker(
         markerId: MarkerId(location.userId),
         position: location.latLng,
         infoWindow: InfoWindow(
-          title: user.displayName,
+          title: isCurrentUser ? 'Bạn' : user.displayName,
           snippet: location.address ?? 'Không có địa chỉ',
           onTap: () => _showLocationDetails(location, user),
         ),
-        icon: _getMarkerIcon(location.status ?? 'online'),
+        icon: isCurrentUser
+            ? BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ) // màu xanh dương cho user hiện tại
+            : _getMarkerIcon(location.status ?? 'online'),
         rotation: location.heading ?? 0.0,
         flat: true,
       );
@@ -322,6 +367,34 @@ class _MapPageState extends State<MapPage> {
     setState(() => _isLoading = false);
   }
 
+  void _goToMyLocation() async {
+    if (_currentUser == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final location = await _locationService.getCurrentLocation(
+        userId: _currentUser!.uid,
+        userName: _currentUser!.displayName,
+      );
+      if (location != null) {
+        // Cập nhật hoặc thêm vị trí mới vào danh sách
+        final index = _locations.indexWhere((l) => l.userId == location.userId);
+        if (index != -1) {
+          _locations[index] = location;
+        } else {
+          _locations.add(location);
+        }
+        _createMarkers();
+        // Di chuyển camera đến vị trí hiện tại
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(location.latLng, 16.0),
+        );
+      }
+    } catch (e) {
+      _errorMessage = 'Không thể lấy vị trí hiện tại: $e';
+    }
+    setState(() => _isLoading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -333,13 +406,31 @@ class _MapPageState extends State<MapPage> {
             icon: const Icon(Icons.refresh),
             onPressed: _refreshLocations,
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Đăng xuất',
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
         ],
       ),
       body: Stack(
         children: [
           GoogleMap(
-            onMapCreated: (controller) => _mapController = controller,
-            initialCameraPosition: _defaultPosition,
+            onMapCreated: (controller) {
+              _mapController = controller;
+              if (_pendingCameraLocation != null) {
+                _mapController!.animateCamera(
+                  CameraUpdate.newLatLngZoom(
+                    _pendingCameraLocation!.latLng,
+                    16.0,
+                  ),
+                );
+                _pendingCameraLocation = null;
+              }
+            },
+            initialCameraPosition: _initialCameraPosition ?? _defaultPosition,
             markers: _markers,
             polylines: _polylines,
             myLocationEnabled: true,
@@ -381,14 +472,7 @@ class _MapPageState extends State<MapPage> {
               children: [
                 FloatingActionButton(
                   heroTag: 'myLocation',
-                  onPressed: () {
-                    if (_currentUser != null) {
-                      _locationService.getCurrentLocation(
-                        userId: _currentUser!.uid,
-                        userName: _currentUser!.displayName,
-                      );
-                    }
-                  },
+                  onPressed: _goToMyLocation,
                   child: const Icon(Icons.my_location),
                 ),
                 const SizedBox(height: 12),

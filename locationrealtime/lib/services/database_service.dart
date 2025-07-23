@@ -165,7 +165,7 @@ class DatabaseService {
       if (snapshot.exists) {
         final Map<dynamic, dynamic> data = snapshot.value as Map;
         data.forEach((userId, value) {
-          if (value != null) {
+          if (value is Map) {
             locations.add(
               LocationModel.fromMap(Map<String, dynamic>.from(value)),
             );

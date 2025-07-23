@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
+import 'services/location_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -40,7 +41,15 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Đăng nhập thành công, AuthWrapper sẽ tự động chuyển đến MapPage
+      // Đăng nhập thành công, yêu cầu quyền truy cập vị trí
+      final granted = await LocationService().requestLocationPermission();
+      if (!granted) {
+        setState(
+          () => _message =
+              'Bạn cần cấp quyền truy cập vị trí để sử dụng ứng dụng!',
+        );
+      }
+      // AuthWrapper sẽ tự động chuyển đến MapPage nếu đăng nhập thành công
     } catch (e) {
       setState(() => _message = 'Lỗi đăng nhập: $e');
     } finally {

@@ -1,6 +1,7 @@
 class MapsConfig {
   // Google Maps API Key - Thay thế bằng API key thật của bạn
-  static const String googleMapsApiKey = 'AIzaSyB-EXAMPLE-KEY-PLEASE-REPLACE';
+  static const String googleMapsApiKey =
+      'AIzaSyCkM75BbiZB7jj2FCpukf-cq4F2FLfYJv8';
 
   // Cấu hình bản đồ mặc định
   static const double defaultLatitude = 21.0285; // Hà Nội
