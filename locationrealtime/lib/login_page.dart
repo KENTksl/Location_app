@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
+import 'map_page.dart'; // Added import for MapPage
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -41,7 +43,24 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text.trim(),
       );
       setState(() => _message = 'Đăng nhập thành công!');
-      // TODO: Navigate to main app
+
+      // Bổ sung: Nếu user chưa có trong /users thì tự động thêm vào
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userRef = FirebaseDatabase.instance.ref('users/${user.uid}');
+        final snap = await userRef.get();
+        if (!snap.exists) {
+          await userRef.set({
+            'email': user.email,
+            'createdAt': DateTime.now().toIso8601String(),
+          });
+        }
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MapPage()),
+      );
     } catch (e) {
       setState(() => _message = 'Lỗi đăng nhập: $e');
     } finally {
@@ -60,91 +79,95 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Đăng nhập'), centerTitle: true),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.location_on, size: 80, color: Colors.blue),
-            const SizedBox(height: 32),
-            const Text(
-              'Chào mừng bạn trở lại!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Đăng nhập để tiếp tục',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 60),
+              const Icon(Icons.location_on, size: 80, color: Colors.blue),
+              const SizedBox(height: 32),
+              const Text(
+                'Chào mừng bạn trở lại!',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Mật khẩu',
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              const Text(
+                'Đăng nhập để tiếp tục',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _navigateToForgotPassword,
-                child: const Text('Quên mật khẩu?'),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _signIn,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Đăng nhập', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_message.isNotEmpty)
-              Text(
-                _message,
-                style: TextStyle(
-                  color: _message.contains('thành công')
-                      ? Colors.green
-                      : Colors.red,
+              const SizedBox(height: 32),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
                 ),
-                textAlign: TextAlign.center,
+                keyboardType: TextInputType.emailAddress,
               ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Chưa có tài khoản? '),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignupPage(),
-                      ),
-                    );
-                  },
-                  child: const Text('Đăng ký ngay'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu',
+                  prefixIcon: Icon(Icons.lock),
+                  border: OutlineInputBorder(),
                 ),
-              ],
-            ),
-          ],
+                obscureText: true,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _navigateToForgotPassword,
+                  child: const Text('Quên mật khẩu?'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _signIn,
+                  child: _isLoading
+                      ? const CircularProgressIndicator()
+                      : const Text('Đăng nhập', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (_message.isNotEmpty)
+                Text(
+                  _message,
+                  style: TextStyle(
+                    color: _message.contains('thành công')
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Chưa có tài khoản? '),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignupPage(),
+                        ),
+                      );
+                    },
+                    child: const Text('Đăng ký ngay'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
