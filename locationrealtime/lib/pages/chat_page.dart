@@ -5,13 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'dart:io';
-import 'notification_service.dart';
 import 'dart:async'; // Added for StreamSubscription
 
 class ChatPage extends StatefulWidget {
   final String friendId;
   final String friendEmail;
-  const ChatPage({Key? key, required this.friendId, required this.friendEmail}) : super(key: key);
+  const ChatPage({Key? key, required this.friendId, required this.friendEmail})
+    : super(key: key);
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -32,7 +32,10 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    _chatId = _getChatId(FirebaseAuth.instance.currentUser!.uid, widget.friendId);
+    _chatId = _getChatId(
+      FirebaseAuth.instance.currentUser!.uid,
+      widget.friendId,
+    );
     _myEmail = FirebaseAuth.instance.currentUser?.email;
     _loadAvatarUrls();
     _listenMessages();
@@ -62,7 +65,9 @@ class _ChatPageState extends State<ChatPage> {
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            _scrollController.jumpTo(
+              _scrollController.position.maxScrollExtent,
+            );
           }
         });
       } else {
@@ -95,14 +100,14 @@ class _ChatPageState extends State<ChatPage> {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
     await ref.set(msgs);
-    
-    // Gửi thông báo cho bạn bè
-    await NotificationService.sendMessageNotification(
-      widget.friendId,
-      _myEmail ?? '',
-      text,
-    );
-    
+
+    // // Gửi thông báo cho bạn bè
+    // await NotificationService.sendMessageNotification(
+    //   widget.friendId,
+    //   _myEmail ?? '',
+    //   text,
+    // );
+
     _controller.clear();
   }
 
@@ -110,7 +115,9 @@ class _ChatPageState extends State<ChatPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       // Load my avatar
-      final myAvatarRef = FirebaseDatabase.instance.ref('users/${user.uid}/avatarUrl');
+      final myAvatarRef = FirebaseDatabase.instance.ref(
+        'users/${user.uid}/avatarUrl',
+      );
       final myAvatarSnap = await myAvatarRef.get();
       if (myAvatarSnap.exists) {
         print('Chat: Initial my avatar loaded: ${myAvatarSnap.value}');
@@ -120,7 +127,7 @@ class _ChatPageState extends State<ChatPage> {
       } else {
         print('Chat: No initial my avatar found');
       }
-      
+
       // Lắng nghe thay đổi avatar của tôi
       _myAvatarSubscription = myAvatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
@@ -140,7 +147,9 @@ class _ChatPageState extends State<ChatPage> {
       });
 
       // Load friend avatar
-      final friendAvatarRef = FirebaseDatabase.instance.ref('users/${widget.friendId}/avatarUrl');
+      final friendAvatarRef = FirebaseDatabase.instance.ref(
+        'users/${widget.friendId}/avatarUrl',
+      );
       final friendAvatarSnap = await friendAvatarRef.get();
       if (friendAvatarSnap.exists) {
         print('Chat: Initial friend avatar loaded: ${friendAvatarSnap.value}');
@@ -150,7 +159,7 @@ class _ChatPageState extends State<ChatPage> {
       } else {
         print('Chat: No initial friend avatar found');
       }
-      
+
       // Lắng nghe thay đổi avatar của bạn bè
       _friendAvatarSubscription = friendAvatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
@@ -176,23 +185,27 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildMessage(Map msg, bool isMe) {
     final time = msg['timestamp'] != null
-        ? DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(msg['timestamp']))
+        ? DateFormat(
+            'HH:mm',
+          ).format(DateTime.fromMillisecondsSinceEpoch(msg['timestamp']))
         : '';
-    
+
     final avatarUrl = isMe ? _myAvatarUrl : _friendAvatarUrl;
     final email = isMe ? (_myEmail ?? '') : widget.friendEmail;
-    
+
     // Debug: In ra thông tin avatar
     // if (isMe) {
     //   print('Chat: Building message for me with avatar: $avatarUrl');
     // } else {
     //   print('Chat: Building message for friend with avatar: $avatarUrl');
     // }
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe)
@@ -202,11 +215,16 @@ class _ChatPageState extends State<ChatPage> {
             ),
           Flexible(
             child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 2),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: isMe ? Colors.blue : Colors.grey.shade200,
                     borderRadius: BorderRadius.only(
@@ -226,7 +244,10 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
-                  child: Text(time, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  child: Text(
+                    time,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
                 ),
               ],
             ),
@@ -241,16 +262,16 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildAvatarWidget(String? avatarUrl, String email, {double radius = 16}) {
+  Widget _buildAvatarWidget(
+    String? avatarUrl,
+    String email, {
+    double radius = 16,
+  }) {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       if (avatarUrl.startsWith('random:')) {
         // Hiển thị random avatar với seed từ avatarUrl
         final seed = avatarUrl.substring(7);
-        return RandomAvatar(
-          seed,
-          height: radius * 2,
-          width: radius * 2,
-        );
+        return RandomAvatar(seed, height: radius * 2, width: radius * 2);
       } else if (avatarUrl.startsWith('http')) {
         // Hiển thị network image
         return ClipRRect(
@@ -261,7 +282,8 @@ class _ChatPageState extends State<ChatPage> {
             height: radius * 2,
             fit: BoxFit.cover,
             placeholder: (context, url) => _buildDefaultAvatar(email, radius),
-            errorWidget: (context, url, error) => _buildDefaultAvatar(email, radius),
+            errorWidget: (context, url, error) =>
+                _buildDefaultAvatar(email, radius),
           ),
         );
       } else {
@@ -273,7 +295,8 @@ class _ChatPageState extends State<ChatPage> {
             width: radius * 2,
             height: radius * 2,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(email, radius),
+            errorBuilder: (context, error, stackTrace) =>
+                _buildDefaultAvatar(email, radius),
           ),
         );
       }
@@ -287,10 +310,7 @@ class _ChatPageState extends State<ChatPage> {
       height: radius * 2,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF10b981),
-            const Color(0xFF059669),
-          ],
+          colors: [const Color(0xFF10b981), const Color(0xFF059669)],
         ),
         shape: BoxShape.circle,
       ),
@@ -347,8 +367,13 @@ class _ChatPageState extends State<ChatPage> {
                     controller: _controller,
                     decoration: const InputDecoration(
                       hintText: 'Nhập tin nhắn...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                 ),
@@ -364,4 +389,4 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
-} 
+}

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'models/location_history.dart';
-import 'services/location_history_service.dart';
+import '../models/location_history.dart';
+import '../services/location_history_service.dart';
 
 class LocationHistoryPage extends StatefulWidget {
   const LocationHistoryPage({Key? key}) : super(key: key);
@@ -34,18 +33,18 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     try {
       // Load routes từ local storage
       final routes = await _service.getRoutesLocally();
-      
+
       // Load routes từ Firebase
       final firebaseRoutes = await _service.getRoutesFromFirebase();
-      
+
       // Merge và sort theo thời gian
       final allRoutes = [...routes, ...firebaseRoutes];
       allRoutes.sort((a, b) => b.startTime.compareTo(a.startTime));
-      
+
       // Remove duplicates
       final uniqueRoutes = <LocationRoute>[];
       final seenIds = <String>{};
-      
+
       for (final route in allRoutes) {
         if (!seenIds.contains(route.id)) {
           uniqueRoutes.add(route);
@@ -71,13 +70,19 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     switch (_selectedFilter) {
       case 'week':
         final weekAgo = now.subtract(const Duration(days: 7));
-        return _routes.where((route) => route.startTime.isAfter(weekAgo)).toList();
+        return _routes
+            .where((route) => route.startTime.isAfter(weekAgo))
+            .toList();
       case 'month':
         final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        return _routes.where((route) => route.startTime.isAfter(monthAgo)).toList();
+        return _routes
+            .where((route) => route.startTime.isAfter(monthAgo))
+            .toList();
       case 'year':
         final yearAgo = DateTime(now.year - 1, now.month, now.day);
-        return _routes.where((route) => route.startTime.isAfter(yearAgo)).toList();
+        return _routes
+            .where((route) => route.startTime.isAfter(yearAgo))
+            .toList();
       default:
         return _routes;
     }
@@ -91,10 +96,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
         ),
         child: SafeArea(
@@ -130,7 +132,9 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
               // Routes List
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
                     : _buildRoutesList(),
               ),
             ],
@@ -197,7 +201,12 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(15),
@@ -221,10 +230,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
           ],
@@ -284,11 +290,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.history,
-              size: 64,
-              color: Colors.white,
-            ),
+            Icon(Icons.history, size: 64, color: Colors.white),
             SizedBox(height: 16),
             Text(
               'Chưa có lịch sử di chuyển',
@@ -301,10 +303,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
             SizedBox(height: 8),
             Text(
               'Các lộ trình của bạn sẽ xuất hiện ở đây',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.white70),
             ),
           ],
         ),
@@ -344,17 +343,11 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
             color: const Color(0xFF667eea).withOpacity(0.1),
             borderRadius: BorderRadius.circular(25),
           ),
-          child: const Icon(
-            Icons.route,
-            color: Color(0xFF667eea),
-          ),
+          child: const Icon(Icons.route, color: Color(0xFF667eea)),
         ),
         title: Text(
           route.name,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,9 +395,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   void _showRouteDetails(LocationRoute route) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => RouteDetailsPage(route: route),
-      ),
+      MaterialPageRoute(builder: (context) => RouteDetailsPage(route: route)),
     );
   }
 }
@@ -412,10 +403,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
 class RouteDetailsPage extends StatefulWidget {
   final LocationRoute route;
 
-  const RouteDetailsPage({
-    Key? key,
-    required this.route,
-  }) : super(key: key);
+  const RouteDetailsPage({Key? key, required this.route}) : super(key: key);
 
   @override
   State<RouteDetailsPage> createState() => _RouteDetailsPageState();
@@ -454,10 +442,7 @@ class _RouteDetailsPageState extends State<RouteDetailsPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
         ),
         child: SafeArea(
@@ -567,13 +552,17 @@ class _RouteDetailsPageState extends State<RouteDetailsPage> {
                           markerId: const MarkerId('start'),
                           position: widget.route.points.first.toLatLng(),
                           infoWindow: const InfoWindow(title: 'Điểm bắt đầu'),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueGreen,
+                          ),
                         ),
                         Marker(
                           markerId: const MarkerId('end'),
                           position: widget.route.points.last.toLatLng(),
                           infoWindow: const InfoWindow(title: 'Điểm kết thúc'),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueRed,
+                          ),
                         ),
                       },
                       onMapCreated: (controller) {
@@ -616,10 +605,7 @@ class _RouteDetailsPageState extends State<RouteDetailsPage> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
           ],
@@ -632,9 +618,7 @@ class _RouteDetailsPageState extends State<RouteDetailsPage> {
     if (widget.route.points.isEmpty || _mapController == null) return;
 
     final bounds = _calculateBounds();
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 50),
-    );
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
   }
 
   LatLngBounds _calculateBounds() {
@@ -655,4 +639,4 @@ class _RouteDetailsPageState extends State<RouteDetailsPage> {
       northeast: LatLng(maxLat, maxLng),
     );
   }
-} 
+}

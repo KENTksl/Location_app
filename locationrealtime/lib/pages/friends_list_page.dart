@@ -5,7 +5,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'map_page.dart';
 import 'friend_search_page.dart';
-import 'friend_requests_page.dart';
 import 'user_profile_page.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'chat_page.dart';
@@ -51,9 +50,11 @@ class _FriendsListPageState extends State<FriendsListPage> {
       setState(() {
         _userEmail = user.email;
       });
-      
+
       // Load avatar
-      final avatarRef = FirebaseDatabase.instance.ref('users/${user.uid}/avatarUrl');
+      final avatarRef = FirebaseDatabase.instance.ref(
+        'users/${user.uid}/avatarUrl',
+      );
       final avatarSnap = await avatarRef.get();
       if (avatarSnap.exists) {
         print('Friends: Initial user avatar loaded: ${avatarSnap.value}');
@@ -63,7 +64,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
       } else {
         print('Friends: No initial user avatar found');
       }
-      
+
       // Lắng nghe thay đổi avatar
       avatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
@@ -87,17 +88,19 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _friendAvatarSubscriptions.clear();
 
     // Thử load theo cấu trúc cũ trước
-    final friendsRef = FirebaseDatabase.instance.ref('users/${user.uid}/friends');
+    final friendsRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/friends',
+    );
     final friendsSnap = await friendsRef.get();
-    
+
     if (friendsSnap.exists) {
       final friendsData = friendsSnap.value as Map<dynamic, dynamic>;
       final friendsList = <Map<String, dynamic>>[];
-      
+
       for (final friendId in friendsData.keys) {
         final friendRef = FirebaseDatabase.instance.ref('users/$friendId');
         final friendSnap = await friendRef.get();
-        
+
         if (friendSnap.exists) {
           final friendData = friendSnap.value as Map<dynamic, dynamic>;
           friendsList.add({
@@ -106,29 +109,31 @@ class _FriendsListPageState extends State<FriendsListPage> {
             'avatarUrl': friendData['avatarUrl'],
             'isOnline': false,
           });
-          
+
           // Lắng nghe thay đổi avatar của bạn bè
           _listenToFriendAvatar(friendId);
         }
       }
-      
+
       setState(() {
         _friends = friendsList;
         _isLoading = false;
       });
     } else {
       // Thử load theo cấu trúc mới
-      final newFriendsRef = FirebaseDatabase.instance.ref('friends/${user.uid}');
+      final newFriendsRef = FirebaseDatabase.instance.ref(
+        'friends/${user.uid}',
+      );
       final newFriendsSnap = await newFriendsRef.get();
-      
+
       if (newFriendsSnap.exists) {
         final friendsData = newFriendsSnap.value as Map<dynamic, dynamic>;
         final friendsList = <Map<String, dynamic>>[];
-        
+
         for (final friendId in friendsData.keys) {
           final friendRef = FirebaseDatabase.instance.ref('users/$friendId');
           final friendSnap = await friendRef.get();
-          
+
           if (friendSnap.exists) {
             final friendData = friendSnap.value as Map<dynamic, dynamic>;
             friendsList.add({
@@ -137,12 +142,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
               'avatarUrl': friendData['avatarUrl'],
               'isOnline': false,
             });
-            
+
             // Lắng nghe thay đổi avatar của bạn bè
             _listenToFriendAvatar(friendId);
           }
         }
-        
+
         setState(() {
           _friends = friendsList;
           _isLoading = false;
@@ -156,20 +161,27 @@ class _FriendsListPageState extends State<FriendsListPage> {
   }
 
   void _listenToFriendAvatar(String friendId) {
-    final avatarRef = FirebaseDatabase.instance.ref('users/$friendId/avatarUrl');
+    final avatarRef = FirebaseDatabase.instance.ref(
+      'users/$friendId/avatarUrl',
+    );
     final subscription = avatarRef.onValue.listen((event) {
       if (event.snapshot.exists && mounted) {
-        print('Friends: Friend $friendId avatar updated to: ${event.snapshot.value}');
+        print(
+          'Friends: Friend $friendId avatar updated to: ${event.snapshot.value}',
+        );
         setState(() {
           // Cập nhật avatar trong danh sách bạn bè
-          final friendIndex = _friends.indexWhere((friend) => friend['id'] == friendId);
+          final friendIndex = _friends.indexWhere(
+            (friend) => friend['id'] == friendId,
+          );
           if (friendIndex != -1) {
-            _friends[friendIndex]['avatarUrl'] = event.snapshot.value as String?;
+            _friends[friendIndex]['avatarUrl'] =
+                event.snapshot.value as String?;
           }
         });
       }
     });
-    
+
     _friendAvatarSubscriptions[friendId] = subscription;
   }
 
@@ -177,18 +189,20 @@ class _FriendsListPageState extends State<FriendsListPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final requestsRef = FirebaseDatabase.instance.ref('friendRequests/${user.uid}');
+    final requestsRef = FirebaseDatabase.instance.ref(
+      'friendRequests/${user.uid}',
+    );
     final requestsSnap = await requestsRef.get();
-    
+
     if (requestsSnap.exists) {
       final requestsData = requestsSnap.value as Map<dynamic, dynamic>;
       final requestsList = <Map<String, dynamic>>[];
-      
+
       for (final requestId in requestsData.keys) {
         final requestData = requestsData[requestId] as Map<dynamic, dynamic>;
         final senderRef = FirebaseDatabase.instance.ref('users/$requestId');
         final senderSnap = await senderRef.get();
-        
+
         if (senderSnap.exists) {
           final senderData = senderSnap.value as Map<dynamic, dynamic>;
           requestsList.add({
@@ -198,7 +212,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
           });
         }
       }
-      
+
       setState(() {
         _requests = requestsList;
       });
@@ -209,9 +223,13 @@ class _FriendsListPageState extends State<FriendsListPage> {
     if (_searchQuery.isEmpty) {
       return _friends;
     }
-    return _friends.where((friend) =>
-      friend['email'].toString().toLowerCase().contains(_searchQuery.toLowerCase())
-    ).toList();
+    return _friends
+        .where(
+          (friend) => friend['email'].toString().toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          ),
+        )
+        .toList();
   }
 
   Widget _buildUserAvatar() {
@@ -227,39 +245,38 @@ class _FriendsListPageState extends State<FriendsListPage> {
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xFF10b981),
-            width: 2,
-          ),
+          border: Border.all(color: const Color(0xFF10b981), width: 2),
         ),
         child: _userAvatarUrl != null && _userAvatarUrl!.isNotEmpty
-          ? (_userAvatarUrl!.startsWith('random:')
-              ? RandomAvatar(
-                  _userAvatarUrl!.substring(7),
-                  height: 40,
-                  width: 40,
-                )
-              : _userAvatarUrl!.startsWith('http')
-                ? ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: _userAvatarUrl!,
-                      width: 40,
+            ? (_userAvatarUrl!.startsWith('random:')
+                  ? RandomAvatar(
+                      _userAvatarUrl!.substring(7),
                       height: 40,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => _buildDefaultAvatar(),
-                      errorWidget: (context, url, error) => _buildDefaultAvatar(),
-                    ),
-                  )
-                : ClipOval(
-                    child: Image.file(
-                      File(_userAvatarUrl!),
                       width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
-                    ),
-                  ))
-          : _buildDefaultAvatar(),
+                    )
+                  : _userAvatarUrl!.startsWith('http')
+                  ? ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: _userAvatarUrl!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => _buildDefaultAvatar(),
+                        errorWidget: (context, url, error) =>
+                            _buildDefaultAvatar(),
+                      ),
+                    )
+                  : ClipOval(
+                      child: Image.file(
+                        File(_userAvatarUrl!),
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildDefaultAvatar(),
+                      ),
+                    ))
+            : _buildDefaultAvatar(),
       ),
     );
   }
@@ -288,11 +305,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
       if (avatarUrl.startsWith('random:')) {
         // Hiển thị random avatar với seed từ avatarUrl
         final seed = avatarUrl.substring(7);
-        return RandomAvatar(
-          seed,
-          height: 50,
-          width: 50,
-        );
+        return RandomAvatar(seed, height: 50, width: 50);
       } else if (avatarUrl.startsWith('http')) {
         // Hiển thị network image
         return ClipRRect(
@@ -311,7 +324,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
               ),
               child: const Icon(Icons.person, color: Colors.grey),
             ),
-            errorWidget: (context, url, error) => _buildDefaultFriendAvatar(email),
+            errorWidget: (context, url, error) =>
+                _buildDefaultFriendAvatar(email),
           ),
         );
       } else {
@@ -323,7 +337,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
             width: 50,
             height: 50,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _buildDefaultFriendAvatar(email),
+            errorBuilder: (context, error, stackTrace) =>
+                _buildDefaultFriendAvatar(email),
           ),
         );
       }
@@ -337,10 +352,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
       height: 50,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF10b981),
-            const Color(0xFF059669),
-          ],
+          colors: [const Color(0xFF10b981), const Color(0xFF059669)],
         ),
         shape: BoxShape.circle,
       ),
@@ -365,14 +377,11 @@ class _FriendsListPageState extends State<FriendsListPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
         ),
         child: SafeArea(
-                  child: Column(
+          child: Column(
             children: [
               // Header với avatar user và search
               Container(
@@ -416,8 +425,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 const Icon(
                                   Icons.notifications_rounded,
                                   color: Color(0xFFef4444),
@@ -457,12 +466,18 @@ class _FriendsListPageState extends State<FriendsListPage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const FriendSearchPage()),
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const FriendSearchPage(),
+                                ),
                               );
                             },
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -486,8 +501,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
                     ],
                   ),
                   child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _filteredFriends.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : _filteredFriends.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -499,9 +514,9 @@ class _FriendsListPageState extends State<FriendsListPage> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                _searchQuery.isEmpty 
-                                  ? 'Chưa có bạn bè nào'
-                                  : 'Không tìm thấy bạn bè',
+                                _searchQuery.isEmpty
+                                    ? 'Chưa có bạn bè nào'
+                                    : 'Không tìm thấy bạn bè',
                                 style: TextStyle(
                                   fontSize: 18,
                                   color: Colors.grey.shade600,
@@ -513,7 +528,10 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                   onPressed: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const FriendSearchPage()),
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const FriendSearchPage(),
+                                      ),
                                     );
                                   },
                                   child: const Text(
@@ -536,17 +554,19 @@ class _FriendsListPageState extends State<FriendsListPage> {
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade50,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.grey.shade200,
-                                ),
+                                border: Border.all(color: Colors.grey.shade200),
                               ),
                               child: Row(
                                 children: [
-                                  _buildFriendAvatar(friend['avatarUrl'], friend['email']),
+                                  _buildFriendAvatar(
+                                    friend['avatarUrl'],
+                                    friend['email'],
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           friend['email'].split('@')[0],
@@ -573,33 +593,41 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                       // Chat button
                                       Container(
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFf59e0b).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(
+                                            0xFFf59e0b,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: IconButton(
                                           icon: const Icon(
                                             Icons.chat_bubble_rounded,
                                             color: Color(0xFFf59e0b),
                                           ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ChatPage(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => ChatPage(
                                                   friendId: friend['id'],
                                                   friendEmail: friend['email'],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       // Location button
                                       Container(
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF667eea).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: const Color(
+                                            0xFF667eea,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: IconButton(
                                           icon: const Icon(
@@ -612,11 +640,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                               MaterialPageRoute(
                                                 builder: (context) => MapPage(
                                                   focusFriendId: friend['id'],
-                                                  focusFriendEmail: friend['email'],
-                        ),
-                      ),
-                    );
-                  },
+                                                  focusFriendEmail:
+                                                      friend['email'],
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                     ],
@@ -631,7 +660,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
             ],
           ),
         ),
-                ),
+      ),
     );
   }
-} 
+}

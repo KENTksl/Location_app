@@ -53,10 +53,11 @@ class _SignupPageState extends State<SignupPage> {
     });
 
     try {
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
       setState(() => _message = 'Đăng ký thành công!');
 
       // Lưu thông tin user vào Realtime Database

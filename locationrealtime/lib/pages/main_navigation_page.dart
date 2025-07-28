@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'map_page.dart';
 import 'friends_list_page.dart';
-import 'friend_search_page.dart';
-import 'friend_requests_page.dart';
 import 'user_profile_page.dart';
-import 'chat_list_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({Key? key}) : super(key: key);
@@ -13,7 +10,8 @@ class MainNavigationPage extends StatefulWidget {
   State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class _MainNavigationPageState extends State<MainNavigationPage> with TickerProviderStateMixin {
+class _MainNavigationPageState extends State<MainNavigationPage>
+    with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -49,13 +47,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.forward();
   }
 
@@ -70,16 +64,13 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: _pages,
-        ),
+        child: IndexedStack(index: _selectedIndex, children: _pages),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.light 
-            ? Colors.white 
-            : const Color(0xFF1e293b),
+          color: Theme.of(context).brightness == Brightness.light
+              ? Colors.white
+              : const Color(0xFF1e293b),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(25),
             topRight: Radius.circular(25),
@@ -111,7 +102,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
   Widget _buildNavigationItem(int index) {
     final item = _navigationItems[index];
     final isSelected = _selectedIndex == index;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -126,16 +117,16 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: isSelected 
-            ? LinearGradient(
-                colors: [
-                  item.color.withOpacity(0.2),
-                  item.color.withOpacity(0.1),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    item.color.withOpacity(0.2),
+                    item.color.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -150,9 +141,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
               child: Icon(
                 item.icon,
                 size: isSelected ? 20 : 18,
-                color: isSelected 
-                  ? Colors.white 
-                  : Theme.of(context).brightness == Brightness.light
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context).brightness == Brightness.light
                     ? const Color(0xFF94a3b8)
                     : const Color(0xFF64748b),
               ),
@@ -163,9 +154,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> with TickerProv
               style: TextStyle(
                 fontSize: isSelected ? 10 : 9,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected 
-                  ? item.color
-                  : Theme.of(context).brightness == Brightness.light
+                color: isSelected
+                    ? item.color
+                    : Theme.of(context).brightness == Brightness.light
                     ? const Color(0xFF94a3b8)
                     : const Color(0xFF64748b),
               ),
@@ -188,4 +179,4 @@ class NavigationItem {
     required this.label,
     required this.color,
   });
-} 
+}

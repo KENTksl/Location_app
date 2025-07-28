@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +9,7 @@ class LocationHistoryService {
   static const String _routesKey = 'location_routes';
   static const String _currentRouteKey = 'current_route';
   static const String _statsKey = 'location_stats';
-  
+
   final FirebaseDatabase _database = FirebaseDatabase.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -18,15 +17,15 @@ class LocationHistoryService {
   Future<void> saveRouteLocally(LocationRoute route) async {
     final prefs = await SharedPreferences.getInstance();
     final routesJson = prefs.getStringList(_routesKey) ?? [];
-    
+
     // Thêm route mới
     routesJson.add(jsonEncode(route.toJson()));
-    
+
     // Giữ tối đa 100 routes gần nhất
     if (routesJson.length > 100) {
       routesJson.removeAt(0);
     }
-    
+
     await prefs.setStringList(_routesKey, routesJson);
   }
 
@@ -34,7 +33,7 @@ class LocationHistoryService {
   Future<List<LocationRoute>> getRoutesLocally() async {
     final prefs = await SharedPreferences.getInstance();
     final routesJson = prefs.getStringList(_routesKey) ?? [];
-    
+
     return routesJson
         .map((json) => LocationRoute.fromJson(jsonDecode(json)))
         .toList();
@@ -79,17 +78,18 @@ class LocationHistoryService {
   // Tính khoảng cách giữa 2 điểm
   double calculateDistance(LocationPoint point1, LocationPoint point2) {
     return Geolocator.distanceBetween(
-      point1.latitude,
-      point1.longitude,
-      point2.latitude,
-      point2.longitude,
-    ) / 1000; // Convert to km
+          point1.latitude,
+          point1.longitude,
+          point2.latitude,
+          point2.longitude,
+        ) /
+        1000; // Convert to km
   }
 
   // Tính tổng khoảng cách của route
   double calculateTotalDistance(List<LocationPoint> points) {
     if (points.length < 2) return 0;
-    
+
     double totalDistance = 0;
     for (int i = 0; i < points.length - 1; i++) {
       totalDistance += calculateDistance(points[i], points[i + 1]);
@@ -131,7 +131,7 @@ class LocationHistoryService {
     final prefs = await SharedPreferences.getInstance();
     final routeJson = prefs.getString(_currentRouteKey);
     if (routeJson == null) return null;
-    
+
     try {
       return LocationRoute.fromJson(jsonDecode(routeJson));
     } catch (e) {
@@ -166,10 +166,10 @@ class LocationHistoryService {
     for (final route in routes) {
       totalDistance += route.totalDistance;
       totalDuration += route.totalDuration;
-      
+
       final dateKey = route.startTime.toIso8601String().split('T')[0];
       dailyStats[dateKey] = (dailyStats[dateKey] ?? 0) + 1;
-      
+
       if (lastActivity == null || route.startTime.isAfter(lastActivity)) {
         lastActivity = route.startTime;
       }
@@ -183,7 +183,7 @@ class LocationHistoryService {
       totalRoutes: routes.length,
       totalDistance: totalDistance,
       totalDuration: totalDuration,
-      averageSpeed: averageSpeed,
+      averageSpeed: averageSpeed.toDouble(),
       lastActivity: lastActivity,
       dailyStats: dailyStats,
     );
@@ -200,7 +200,7 @@ class LocationHistoryService {
     final prefs = await SharedPreferences.getInstance();
     final statsJson = prefs.getString(_statsKey);
     if (statsJson == null) return null;
-    
+
     try {
       return LocationHistoryStats.fromJson(jsonDecode(statsJson));
     } catch (e) {
@@ -213,7 +213,7 @@ class LocationHistoryService {
   String generateRouteName(LocationRoute route) {
     final startTime = route.startTime;
     final hour = startTime.hour;
-    
+
     if (hour >= 6 && hour < 12) {
       return 'Buổi sáng ${startTime.day}/${startTime.month}';
     } else if (hour >= 12 && hour < 18) {
@@ -230,8 +230,8 @@ class LocationHistoryService {
     DateTime endDate,
   ) {
     return routes.where((route) {
-      return route.startTime.isAfter(startDate) && 
-             route.startTime.isBefore(endDate);
+      return route.startTime.isAfter(startDate) &&
+          route.startTime.isBefore(endDate);
     }).toList();
   }
 
@@ -242,8 +242,8 @@ class LocationHistoryService {
     double maxDistance,
   ) {
     return routes.where((route) {
-      return route.totalDistance >= minDistance && 
-             route.totalDistance <= maxDistance;
+      return route.totalDistance >= minDistance &&
+          route.totalDistance <= maxDistance;
     }).toList();
   }
-} 
+}

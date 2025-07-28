@@ -18,7 +18,8 @@ class UserProfilePage extends StatefulWidget {
   State<UserProfilePage> createState() => _UserProfilePageState();
 }
 
-class _UserProfilePageState extends State<UserProfilePage> with TickerProviderStateMixin {
+class _UserProfilePageState extends State<UserProfilePage>
+    with TickerProviderStateMixin {
   User? user;
   String? _avatarUrl;
   bool _isSharing = false;
@@ -57,15 +58,16 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
 
     try {
       // Kiểm tra cài đặt "luôn chia sẻ"
-      final alwaysShareRef = FirebaseDatabase.instance.ref('users/${user.uid}/alwaysShareLocation');
+      final alwaysShareRef = FirebaseDatabase.instance.ref(
+        'users/${user.uid}/alwaysShareLocation',
+      );
       final alwaysShareSnap = await alwaysShareRef.get();
-      
+
       if (alwaysShareSnap.exists && alwaysShareSnap.value == true) {
         // Kiểm tra quyền vị trí
         final permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.whileInUse || 
+        if (permission == LocationPermission.whileInUse ||
             permission == LocationPermission.always) {
-          
           // Tự động bật chia sẻ vị trí
           setState(() {
             _isSharing = true;
@@ -79,9 +81,8 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
         } else {
           // Yêu cầu quyền vị trí
           final granted = await Geolocator.requestPermission();
-          if (granted == LocationPermission.whileInUse || 
+          if (granted == LocationPermission.whileInUse ||
               granted == LocationPermission.always) {
-            
             setState(() {
               _isSharing = true;
               _status = 'Đã khôi phục chia sẻ vị trí';
@@ -106,7 +107,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     // Tạo danh sách avatar có sẵn
     _availableAvatars = [
       'user1',
-      'user2', 
+      'user2',
       'user3',
       'user4',
       'user5',
@@ -122,12 +123,14 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
 
   Future<void> _loadAvatar() async {
     if (user != null) {
-      final avatarRef = FirebaseDatabase.instance.ref('users/${user!.uid}/avatarUrl');
+      final avatarRef = FirebaseDatabase.instance.ref(
+        'users/${user!.uid}/avatarUrl',
+      );
       final avatarSnap = await avatarRef.get();
       if (avatarSnap.exists) {
-    setState(() {
+        setState(() {
           _avatarUrl = avatarSnap.value as String?;
-    });
+        });
       }
     }
   }
@@ -136,7 +139,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     if (user == null) return;
 
     // Load friend count
-    final friendsRef = FirebaseDatabase.instance.ref('users/${user!.uid}/friends');
+    final friendsRef = FirebaseDatabase.instance.ref(
+      'users/${user!.uid}/friends',
+    );
     final friendsSnap = await friendsRef.get();
     if (friendsSnap.exists) {
       final friends = friendsSnap.value as Map?;
@@ -146,7 +151,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     }
 
     // Load request count
-    final requestsRef = FirebaseDatabase.instance.ref('friendRequests/${user!.uid}');
+    final requestsRef = FirebaseDatabase.instance.ref(
+      'friendRequests/${user!.uid}',
+    );
     final requestsSnap = await requestsRef.get();
     if (requestsSnap.exists) {
       final requests = requestsSnap.value as Map?;
@@ -160,10 +167,10 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     setState(() {
       _isUpdatingAvatar = true;
     });
-    
+
     // Hiển thị loading trong 2 giây
     await Future.delayed(const Duration(seconds: 2));
-    
+
     setState(() {
       _isUpdatingAvatar = false;
     });
@@ -175,16 +182,16 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
       setState(() {
         _avatarUrl = image.path;
       });
-      
+
       // Hiển thị loading
       await _showAvatarUpdateLoading();
-      
+
       // Save to Firebase
       if (user != null) {
         await FirebaseDatabase.instance
             .ref('users/${user!.uid}/avatarUrl')
             .set(image.path);
-        
+
         // Force refresh để đảm bảo cập nhật
         await Future.delayed(const Duration(milliseconds: 100));
         await FirebaseDatabase.instance
@@ -199,16 +206,16 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
       _avatarUrl = 'random:$seed';
       _showAvatarSelector = false;
     });
-    
+
     // Hiển thị loading
     await _showAvatarUpdateLoading();
-    
+
     // Save to Firebase
     if (user != null) {
       await FirebaseDatabase.instance
           .ref('users/${user!.uid}/avatarUrl')
           .set('random:$seed');
-      
+
       // Force refresh để đảm bảo cập nhật
       await Future.delayed(const Duration(milliseconds: 100));
       await FirebaseDatabase.instance
@@ -224,12 +231,12 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     });
 
     try {
-    if (value) {
+      if (value) {
         // Bắt đầu chia sẻ vị trí
         final permission = await Geolocator.checkPermission();
         if (permission == LocationPermission.denied) {
           final granted = await Geolocator.requestPermission();
-          if (granted != LocationPermission.whileInUse && 
+          if (granted != LocationPermission.whileInUse &&
               granted != LocationPermission.always) {
             setState(() {
               _status = 'Cần quyền truy cập vị trí để chia sẻ!';
@@ -249,12 +256,12 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/isSharingLocation')
               .set(true);
-          
+
           // Lưu thời gian bắt đầu chia sẻ
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/locationSharingStartedAt')
               .set(DateTime.now().millisecondsSinceEpoch);
-          
+
           // Lưu cài đặt "luôn chia sẻ"
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/alwaysShareLocation')
@@ -283,11 +290,11 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/isSharingLocation')
               .remove();
-          
+
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/locationSharingStartedAt')
               .remove();
-          
+
           // Tắt cài đặt "luôn chia sẻ"
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/alwaysShareLocation')
@@ -308,23 +315,25 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
 
   void _startBackgroundLocationSharing() {
     _backgroundTimer?.cancel();
-    _backgroundTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+    _backgroundTimer = Timer.periodic(const Duration(seconds: 30), (
+      timer,
+    ) async {
       if (_isSharing && user != null) {
         try {
           final position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high,
           );
-          
+
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/location')
               .set({
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-            'isOnline': true,
-            'isSharingLocation': true,
-            'lastUpdated': DateTime.now().millisecondsSinceEpoch,
-          });
-      } catch (e) {
+                'latitude': position.latitude,
+                'longitude': position.longitude,
+                'isOnline': true,
+                'isSharingLocation': true,
+                'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+              });
+        } catch (e) {
           print('Error updating location in background: $e');
         }
       }
@@ -352,18 +361,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
             height: 108,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF667eea),
-                width: 3,
-              ),
+              border: Border.all(color: const Color(0xFF667eea), width: 3),
             ),
-            child: ClipOval(
-              child: RandomAvatar(
-                seed,
-                height: 108,
-                width: 108,
-              ),
-            ),
+            child: ClipOval(child: RandomAvatar(seed, height: 108, width: 108)),
           ),
         );
       } else if (_avatarUrl!.startsWith('http')) {
@@ -379,10 +379,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
             height: 108,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF667eea),
-                width: 3,
-              ),
+              border: Border.all(color: const Color(0xFF667eea), width: 3),
             ),
             child: ClipOval(
               child: CachedNetworkImage(
@@ -407,16 +404,14 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
             height: 108,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF667eea),
-                width: 3,
-              ),
+              border: Border.all(color: const Color(0xFF667eea), width: 3),
             ),
             child: ClipOval(
               child: Image.file(
                 File(_avatarUrl!),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildDefaultAvatar(),
               ),
             ),
           ),
@@ -434,10 +429,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
           height: 108,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF667eea),
-              width: 3,
-            ),
+            border: Border.all(color: const Color(0xFF667eea), width: 3),
           ),
           child: _buildDefaultAvatar(),
         ),
@@ -449,22 +441,19 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF667eea),
-            const Color(0xFF764ba2),
-          ],
+          colors: [const Color(0xFF667eea), const Color(0xFF764ba2)],
         ),
         shape: BoxShape.circle,
       ),
       child: Center(
         child: Text(
-          user?.email != null && user!.email!.isNotEmpty 
-              ? user!.email![0].toUpperCase() 
+          user?.email != null && user!.email!.isNotEmpty
+              ? user!.email![0].toUpperCase()
               : '?',
           style: const TextStyle(
-            fontSize: 44, 
-            color: Colors.white, 
-            fontWeight: FontWeight.bold
+            fontSize: 44,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -530,17 +519,19 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                   ),
                 );
               }
-              
+
               final avatarSeed = _availableAvatars[index - 1];
               final isSelected = _avatarUrl == 'random:$avatarSeed';
-              
+
               return GestureDetector(
                 onTap: () => _selectRandomAvatar(avatarSeed),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected ? const Color(0xFF667eea) : Colors.grey.shade300,
+                      color: isSelected
+                          ? const Color(0xFF667eea)
+                          : Colors.grey.shade300,
                       width: isSelected ? 3 : 1,
                     ),
                   ),
@@ -578,10 +569,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-            ],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
         ),
         child: Stack(
@@ -589,16 +577,12 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
             SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
-              child: Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header
                     Row(
-                children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                      children: [
                         const Text(
                           'Cá nhân',
                           style: TextStyle(
@@ -610,9 +594,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Avatar Section
-                  Center(
+                    Center(
                       child: Stack(
                         children: [
                           _buildAvatar(),
@@ -625,7 +609,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                                 ),
                                 child: const Center(
                                   child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -633,9 +619,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // User Info
                     Container(
                       width: double.infinity,
@@ -673,9 +659,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Location Sharing Card
                     Container(
                       width: double.infinity,
@@ -697,7 +683,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                           Row(
                             children: [
                               Icon(
-                                _isSharing ? Icons.location_on : Icons.location_off,
+                                _isSharing
+                                    ? Icons.location_on
+                                    : Icons.location_off,
                                 color: _isSharing ? Colors.green : Colors.grey,
                                 size: 24,
                               ),
@@ -723,9 +711,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                          Switch(
-                            value: _isSharing,
-                            onChanged: _loading ? null : _toggleShare,
+                              Switch(
+                                value: _isSharing,
+                                onChanged: _loading ? null : _toggleShare,
                                 activeColor: const Color(0xFF667eea),
                               ),
                               const Spacer(),
@@ -733,7 +721,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                                 const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                             ],
                           ),
@@ -745,7 +735,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                                 color: const Color(0xFF10b981).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: const Color(0xFF10b981).withOpacity(0.3),
+                                  color: const Color(
+                                    0xFF10b981,
+                                  ).withOpacity(0.3),
                                 ),
                               ),
                               child: Row(
@@ -767,13 +759,13 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                                   ),
                                 ],
                               ),
-                          ),
+                            ),
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Friend Requests Card
                     if (_requestCount > 0)
                       Container(
@@ -835,7 +827,8 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const FriendRequestsPage(),
+                                    builder: (context) =>
+                                        const FriendRequestsPage(),
                                   ),
                                 );
                               },
@@ -851,9 +844,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                           ],
                         ),
                       ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Location History Button
                     SizedBox(
                       width: double.infinity,
@@ -878,9 +871,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Logout Button
                     SizedBox(
                       width: double.infinity,
@@ -918,9 +911,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
               Positioned.fill(
                 child: Container(
                   color: Colors.black.withOpacity(0.5),
-                  child: Center(
-                    child: _buildAvatarSelector(),
-                  ),
+                  child: Center(child: _buildAvatarSelector()),
                 ),
               ),
           ],
@@ -943,11 +934,7 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
+          child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(height: 8),
         Text(
@@ -960,12 +947,9 @@ class _UserProfilePageState extends State<UserProfilePage> with TickerProviderSt
         ),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF64748b),
-          ),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748b)),
         ),
       ],
     );
   }
-} 
+}

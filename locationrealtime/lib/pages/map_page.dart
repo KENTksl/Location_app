@@ -9,20 +9,16 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui' as ui;
-import 'models/location_history.dart';
-import 'services/location_history_service.dart';
+import '../models/location_history.dart';
+import '../services/location_history_service.dart';
 import 'location_history_page.dart';
 
 class MapPage extends StatefulWidget {
   final String? focusFriendId;
   final String? focusFriendEmail;
 
-  const MapPage({
-    Key? key,
-    this.focusFriendId,
-    this.focusFriendEmail,
-  }) : super(key: key);
+  const MapPage({Key? key, this.focusFriendId, this.focusFriendEmail})
+    : super(key: key);
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -44,9 +40,10 @@ class _MapPageState extends State<MapPage> {
   Map<String, String> _friendAvatars = {};
   bool _is3DEnabled = false;
   Map<String, Marker> _friendMarkers = {};
-  
+
   // Location History variables
-  final LocationHistoryService _locationHistoryService = LocationHistoryService();
+  final LocationHistoryService _locationHistoryService =
+      LocationHistoryService();
   List<LocationPoint> _currentRoutePoints = [];
   LocationRoute? _currentRoute;
   bool _isRecordingRoute = false;
@@ -60,11 +57,11 @@ class _MapPageState extends State<MapPage> {
     _loadMyAvatar();
     _listenToFriendsLocations();
     _loadCurrentRoute();
-    
+
     if (widget.focusFriendId != null) {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
     }
-    
+
     setState(() {
       _isLoading = false;
     });
@@ -74,14 +71,16 @@ class _MapPageState extends State<MapPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        final avatarRef = FirebaseDatabase.instance.ref('users/${user.uid}/avatarUrl');
+        final avatarRef = FirebaseDatabase.instance.ref(
+          'users/${user.uid}/avatarUrl',
+        );
         final avatarSnap = await avatarRef.get();
         if (avatarSnap.exists) {
           setState(() {
             _myAvatarUrl = avatarSnap.value as String?;
           });
         }
-        
+
         // Lắng nghe thay đổi avatar
         avatarRef.onValue.listen((event) {
           if (event.snapshot.exists && mounted) {
@@ -105,11 +104,11 @@ class _MapPageState extends State<MapPage> {
     await _getCurrentLocation();
     await _loadFriendsData();
     _listenToFriendsLocations();
-    
+
     if (widget.focusFriendId != null) {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
     }
-    
+
     setState(() {
       _isLoading = false;
     });
@@ -120,16 +119,18 @@ class _MapPageState extends State<MapPage> {
     if (user == null) return;
 
     // Load friends theo cấu trúc cũ
-    final friendsRef = FirebaseDatabase.instance.ref('users/${user.uid}/friends');
+    final friendsRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/friends',
+    );
     final friendsSnap = await friendsRef.get();
-    
+
     if (friendsSnap.exists) {
       final friendsData = friendsSnap.value as Map<dynamic, dynamic>;
-      
+
       for (final friendId in friendsData.keys) {
         final friendRef = FirebaseDatabase.instance.ref('users/$friendId');
         final friendSnap = await friendRef.get();
-        
+
         if (friendSnap.exists) {
           final friendData = friendSnap.value as Map<dynamic, dynamic>;
           _friendEmails[friendId] = friendData['email']?.toString() ?? '';
@@ -149,14 +150,9 @@ class _MapPageState extends State<MapPage> {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF10b981),
-              width: 2,
-            ),
+            border: Border.all(color: const Color(0xFF10b981), width: 2),
           ),
-          child: ClipOval(
-            child: RandomAvatar(seed, height: 40, width: 40),
-          ),
+          child: ClipOval(child: RandomAvatar(seed, height: 40, width: 40)),
         );
       } else if (avatarUrl.startsWith('http')) {
         // Network image
@@ -165,10 +161,7 @@ class _MapPageState extends State<MapPage> {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF10b981),
-              width: 2,
-            ),
+            border: Border.all(color: const Color(0xFF10b981), width: 2),
           ),
           child: ClipOval(
             child: CachedNetworkImage(
@@ -186,16 +179,14 @@ class _MapPageState extends State<MapPage> {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF10b981),
-              width: 2,
-            ),
+            border: Border.all(color: const Color(0xFF10b981), width: 2),
           ),
           child: ClipOval(
             child: Image.file(
               File(avatarUrl),
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(email),
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildDefaultAvatar(email),
             ),
           ),
         );
@@ -212,10 +203,7 @@ class _MapPageState extends State<MapPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF10b981).withOpacity(0.1),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: const Color(0xFF10b981),
-          width: 2,
-        ),
+        border: Border.all(color: const Color(0xFF10b981), width: 2),
       ),
       child: Center(
         child: Text(
@@ -246,7 +234,9 @@ class _MapPageState extends State<MapPage> {
     if (user == null) return;
 
     try {
-      final friendsSnap = await FirebaseDatabase.instance.ref('users/${user.uid}/friends').get();
+      final friendsSnap = await FirebaseDatabase.instance
+          .ref('users/${user.uid}/friends')
+          .get();
       if (friendsSnap.exists && friendsSnap.value is Map) {
         final friends = friendsSnap.value as Map;
         for (String friendId in friends.keys) {
@@ -266,9 +256,11 @@ class _MapPageState extends State<MapPage> {
     _locationStreams[friendId]?.forEach((sub) => sub.cancel());
 
     // Lắng nghe vị trí của bạn bè
-    final locationRef = FirebaseDatabase.instance.ref('users/$friendId/location');
+    final locationRef = FirebaseDatabase.instance.ref(
+      'users/$friendId/location',
+    );
     final stream = locationRef.onValue;
-    
+
     _locationStreams[friendId] = [
       stream.listen((event) async {
         if (event.snapshot.exists) {
@@ -282,9 +274,12 @@ class _MapPageState extends State<MapPage> {
             final position = LatLng(lat, lng);
             final friendEmail = _friendEmails[friendId] ?? '';
             final avatarUrl = _friendAvatars[friendId];
-            
+
             // Tạo custom marker với avatar
-            final markerIcon = await _createCustomMarkerFromAvatar(avatarUrl, friendEmail);
+            final markerIcon = await _createCustomMarkerFromAvatar(
+              avatarUrl,
+              friendEmail,
+            );
 
             setState(() {
               _friendMarkers[friendId] = Marker(
@@ -333,11 +328,12 @@ class _MapPageState extends State<MapPage> {
         return;
       }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Cần quyền truy cập vị trí để hiển thị bản đồ'),
@@ -348,19 +344,19 @@ class _MapPageState extends State<MapPage> {
           _currentPosition = _defaultCenter;
         });
         await _createMyMarker();
-      return;
-    }
+        return;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 15),
       );
-      
-    setState(() {
-      _currentPosition = LatLng(pos.latitude, pos.longitude);
+
+      setState(() {
+        _currentPosition = LatLng(pos.latitude, pos.longitude);
       });
       await _createMyMarker();
-      
+
       if (mounted && mapController != null) {
         try {
           mapController?.animateCamera(
@@ -388,14 +384,14 @@ class _MapPageState extends State<MapPage> {
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
     if (_currentPosition != null) {
-      mapController?.moveCamera(
-        CameraUpdate.newLatLng(_currentPosition!),
-      );
+      mapController?.moveCamera(CameraUpdate.newLatLng(_currentPosition!));
     }
   }
 
   Future<void> _showFriendOnMap(String friendId, String friendEmail) async {
-    final locSnap = await FirebaseDatabase.instance.ref('locations/$friendId').get();
+    final locSnap = await FirebaseDatabase.instance
+        .ref('locations/$friendId')
+        .get();
     if (locSnap.exists) {
       final data = locSnap.value as Map;
       final lat = data['lat'] as double? ?? (data['lat'] as num).toDouble();
@@ -407,7 +403,9 @@ class _MapPageState extends State<MapPage> {
             markerId: MarkerId('friend_$friendId'),
             position: friendPos,
             infoWindow: InfoWindow(title: 'Bạn bè: $friendEmail'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueAzure,
+            ),
           ),
         );
       });
@@ -485,7 +483,11 @@ class _MapPageState extends State<MapPage> {
     return polyline;
   }
 
-  void _startRouteTimer(String friendId, LatLng friendPos, {int interval = 15}) {
+  void _startRouteTimer(
+    String friendId,
+    LatLng friendPos, {
+    int interval = 15,
+  }) {
     _routeTimer?.cancel();
     _routeTimer = Timer.periodic(Duration(seconds: interval), (_) {
       _drawRouteToFriend(friendId, friendPos);
@@ -504,19 +506,19 @@ class _MapPageState extends State<MapPage> {
 
   void _fitBounds() {
     if (_markers.isEmpty) return;
-    
+
     double minLat = double.infinity;
     double maxLat = -double.infinity;
     double minLng = double.infinity;
     double maxLng = -double.infinity;
-    
+
     for (final marker in _markers) {
       minLat = min(minLat, marker.position.latitude);
       maxLat = max(maxLat, marker.position.latitude);
       minLng = min(minLng, marker.position.longitude);
       maxLng = max(maxLng, marker.position.longitude);
     }
-    
+
     // Thêm vị trí hiện tại nếu có
     if (_currentPosition != null) {
       minLat = min(minLat, _currentPosition!.latitude);
@@ -524,15 +526,13 @@ class _MapPageState extends State<MapPage> {
       minLng = min(minLng, _currentPosition!.longitude);
       maxLng = max(maxLng, _currentPosition!.longitude);
     }
-    
+
     final bounds = LatLngBounds(
       southwest: LatLng(minLat, minLng),
       northeast: LatLng(maxLat, maxLng),
     );
-    
-    mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 50),
-    );
+
+    mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
   }
 
   void _resetView() {
@@ -568,12 +568,10 @@ class _MapPageState extends State<MapPage> {
     setState(() {
       _is3DEnabled = !_is3DEnabled;
     });
-    
+
     if (_is3DEnabled) {
       // Tạo hiệu ứng 3D bằng cách zoom in và thay đổi bearing
-      mapController?.animateCamera(
-        CameraUpdate.zoomIn(),
-      );
+      mapController?.animateCamera(CameraUpdate.zoomIn());
     } else {
       // Reset về view bình thường
       if (_currentPosition != null) {
@@ -602,10 +600,7 @@ class _MapPageState extends State<MapPage> {
               target: _defaultCenter,
               zoom: 15.0,
             ),
-            markers: {
-              ..._markers,
-              ..._friendMarkers.values,
-            },
+            markers: {..._markers, ..._friendMarkers.values},
             polylines: _routePolyline != null ? {_routePolyline!} : {},
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
@@ -614,7 +609,7 @@ class _MapPageState extends State<MapPage> {
             compassEnabled: false,
             onTap: (_) => _stopRouteTimer(),
           ),
-          
+
           // Modern App Bar
           Positioned(
             top: 0,
@@ -631,10 +626,7 @@ class _MapPageState extends State<MapPage> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
+                  colors: [Colors.black.withOpacity(0.7), Colors.transparent],
                 ),
               ),
               child: Row(
@@ -702,24 +694,24 @@ class _MapPageState extends State<MapPage> {
                 _buildControlButton(
                   icon: Icons.add_rounded,
                   onPressed: () {
-                    mapController?.animateCamera(
-                      CameraUpdate.zoomIn(),
-                    );
+                    mapController?.animateCamera(CameraUpdate.zoomIn());
                   },
                 ),
                 const SizedBox(height: 8),
                 _buildControlButton(
                   icon: Icons.remove_rounded,
                   onPressed: () {
-                    mapController?.animateCamera(
-                      CameraUpdate.zoomOut(),
-                    );
+                    mapController?.animateCamera(CameraUpdate.zoomOut());
                   },
                 ),
                 const SizedBox(height: 8),
                 _buildControlButton(
-                  icon: _isRecordingRoute ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                  onPressed: _isRecordingRoute ? _stopRouteRecording : _startRouteRecording,
+                  icon: _isRecordingRoute
+                      ? Icons.stop_rounded
+                      : Icons.play_arrow_rounded,
+                  onPressed: _isRecordingRoute
+                      ? _stopRouteRecording
+                      : _startRouteRecording,
                   isActive: _isRecordingRoute,
                 ),
                 const SizedBox(height: 8),
@@ -732,7 +724,7 @@ class _MapPageState extends State<MapPage> {
           ),
           // Route Distance Card
           if (_routeDistance != null)
-          Positioned(
+            Positioned(
               top: 100,
               left: 16,
               right: 100,
@@ -803,9 +795,9 @@ class _MapPageState extends State<MapPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: isActive 
-          ? const Color(0xFF667eea)
-          : Colors.white.withOpacity(0.95),
+        color: isActive
+            ? const Color(0xFF667eea)
+            : Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -825,19 +817,28 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Future<BitmapDescriptor> _createCustomMarkerFromAvatar(String? avatarUrl, String email) async {
+  Future<BitmapDescriptor> _createCustomMarkerFromAvatar(
+    String? avatarUrl,
+    String email,
+  ) async {
     try {
       // Sử dụng màu sắc khác nhau cho từng loại avatar
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         if (avatarUrl.startsWith('random:')) {
           // Random avatar - màu xanh dương
-          return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+          return BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          );
         } else if (avatarUrl.startsWith('http')) {
           // Network image - màu cam
-          return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+          return BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueOrange,
+          );
         } else {
           // Local file - màu tím
-          return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+          return BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          );
         }
       } else {
         // Default avatar - màu xanh lá
@@ -851,10 +852,10 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _createMyMarker() async {
     if (_currentPosition == null) return;
-    
+
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? '';
-    
+
     // Tạo custom marker với avatar
     final markerIcon = await _createCustomMarkerFromAvatar(_myAvatarUrl, email);
 
@@ -864,10 +865,7 @@ class _MapPageState extends State<MapPage> {
           markerId: const MarkerId('me'),
           position: _currentPosition!,
           icon: markerIcon,
-          infoWindow: InfoWindow(
-            title: email.split('@')[0],
-            snippet: 'Online',
-          ),
+          infoWindow: InfoWindow(title: email.split('@')[0], snippet: 'Online'),
         ),
       };
     });
@@ -910,7 +908,7 @@ class _MapPageState extends State<MapPage> {
 
   void _stopRouteRecording() async {
     _routeRecordingTimer?.cancel();
-    
+
     if (_currentRoutePoints.length < 2) {
       setState(() {
         _isRecordingRoute = false;
@@ -971,9 +969,7 @@ class _MapPageState extends State<MapPage> {
   void _showLocationHistory() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const LocationHistoryPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const LocationHistoryPage()),
     );
   }
-} 
+}
