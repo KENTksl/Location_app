@@ -9,6 +9,7 @@ import 'user_profile_page.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'chat_page.dart';
 import 'dart:async'; // Import for StreamSubscription
+import 'main_navigation_page.dart'; // Added import for MainNavigationPage
 
 class FriendsListPage extends StatefulWidget {
   const FriendsListPage({Key? key}) : super(key: key);
@@ -635,13 +636,13 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                             color: Color(0xFF667eea),
                                           ),
                                           onPressed: () {
-                                            Navigator.push(
+                                            Navigator.pushReplacement(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => MapPage(
+                                                builder: (context) => MainNavigationPage(
                                                   focusFriendId: friend['id'],
-                                                  focusFriendEmail:
-                                                      friend['email'],
+                                                  focusFriendEmail: friend['email'],
+                                                  selectedTab: 0,
                                                 ),
                                               ),
                                             );

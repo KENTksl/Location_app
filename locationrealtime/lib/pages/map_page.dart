@@ -288,7 +288,7 @@ class _MapPageState extends State<MapPage> {
                 icon: markerIcon,
                 infoWindow: InfoWindow(
                   title: friendEmail.split('@')[0],
-                  snippet: 'Online',
+                  snippet: 'Bạn bè - ${_getAvatarType(avatarUrl)}',
                 ),
               );
             });
@@ -822,32 +822,51 @@ class _MapPageState extends State<MapPage> {
     String email,
   ) async {
     try {
-      // Sử dụng màu sắc khác nhau cho từng loại avatar
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         if (avatarUrl.startsWith('random:')) {
-          // Random avatar - màu xanh dương
+          // Random avatar - màu xanh dương với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           );
         } else if (avatarUrl.startsWith('http')) {
-          // Network image - màu cam
+          // Network image - màu cam với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueOrange,
           );
         } else {
-          // Local file - màu tím
+          // Local file - màu tím với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueViolet,
           );
         }
       } else {
-        // Default avatar - màu xanh lá
+        // Default avatar - màu xanh lá với chữ cái đầu
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
       }
     } catch (e) {
       print('Error creating custom marker: $e');
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
     }
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromRandomAvatar(String seed) async {
+    // Sử dụng màu xanh dương cho random avatar
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromNetworkImage(String imageUrl) async {
+    // Sử dụng màu cam cho network image
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromLocalFile(String filePath) async {
+    // Sử dụng màu tím cho local file
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromDefaultAvatar(String email) async {
+    // Sử dụng màu xanh lá cho default avatar
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
   }
 
   Future<void> _createMyMarker() async {
@@ -865,10 +884,25 @@ class _MapPageState extends State<MapPage> {
           markerId: const MarkerId('me'),
           position: _currentPosition!,
           icon: markerIcon,
-          infoWindow: InfoWindow(title: email.split('@')[0], snippet: 'Online'),
+          infoWindow: InfoWindow(
+            title: email.split('@')[0], 
+            snippet: 'Bạn - ${_getAvatarType(_myAvatarUrl)}',
+          ),
         ),
       };
     });
+  }
+
+  String _getAvatarType(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return 'Default Avatar';
+    } else if (avatarUrl.startsWith('random:')) {
+      return 'Random Avatar';
+    } else if (avatarUrl.startsWith('http')) {
+      return 'Network Avatar';
+    } else {
+      return 'Local Avatar';
+    }
   }
 
   // Location History Methods
@@ -917,9 +951,10 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    // Tạo route mới
+    // Tạo route mới với tên đơn giản
+    final routeName = _currentRoute?.name ?? 'Lộ trình ${DateTime.now().toString().substring(0, 16)}';
     final route = _locationHistoryService.createRoute(
-      name: _locationHistoryService.generateRouteName(_currentRoute!),
+      name: routeName,
       points: _currentRoutePoints,
     );
 
@@ -955,12 +990,19 @@ class _MapPageState extends State<MapPage> {
       _currentRoutePoints.add(point);
     });
 
-    // Cập nhật current route
+    // Cập nhật current route nếu có
     if (_currentRoute != null) {
       _currentRoute = _locationHistoryService.createRoute(
         name: _currentRoute!.name,
         points: _currentRoutePoints,
         description: _currentRoute!.description,
+      );
+      await _locationHistoryService.saveCurrentRoute(_currentRoute!);
+    } else {
+      // Tạo current route mới nếu chưa có
+      _currentRoute = _locationHistoryService.createRoute(
+        name: 'Lộ trình đang ghi',
+        points: _currentRoutePoints,
       );
       await _locationHistoryService.saveCurrentRoute(_currentRoute!);
     }

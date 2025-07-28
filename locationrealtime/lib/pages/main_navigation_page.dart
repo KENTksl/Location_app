@@ -4,7 +4,10 @@ import 'friends_list_page.dart';
 import 'user_profile_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
-  const MainNavigationPage({Key? key}) : super(key: key);
+  final String? focusFriendId;
+  final String? focusFriendEmail;
+  final int? selectedTab;
+  const MainNavigationPage({Key? key, this.focusFriendId, this.focusFriendEmail, this.selectedTab}) : super(key: key);
 
   @override
   State<MainNavigationPage> createState() => _MainNavigationPageState();
@@ -12,7 +15,7 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage>
     with TickerProviderStateMixin {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -43,6 +46,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.selectedTab ?? 0;
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -61,6 +65,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> _pages = [
+      MapPage(
+        focusFriendId: widget.focusFriendId,
+        focusFriendEmail: widget.focusFriendEmail,
+      ),
+      const FriendsListPage(),
+      const UserProfilePage(),
+    ];
+
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeAnimation,

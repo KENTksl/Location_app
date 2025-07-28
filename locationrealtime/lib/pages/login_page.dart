@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import 'map_page.dart';
+import 'main_navigation_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -83,7 +84,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MapPage()),
+        MaterialPageRoute(builder: (context) => const MainNavigationPage()),
       );
     } catch (e) {
       setState(() => _message = 'Lỗi đăng nhập: $e');
