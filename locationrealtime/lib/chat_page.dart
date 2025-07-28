@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:random_avatar/random_avatar.dart';
+import 'dart:io';
 import 'notification_service.dart';
+import 'dart:async'; // Added for StreamSubscription
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -20,13 +24,26 @@ class _ChatPageState extends State<ChatPage> {
   bool _loading = true;
   late String _chatId;
   String? _myEmail;
+  String? _myAvatarUrl;
+  String? _friendAvatarUrl;
+  StreamSubscription? _myAvatarSubscription;
+  StreamSubscription? _friendAvatarSubscription;
 
   @override
   void initState() {
     super.initState();
     _chatId = _getChatId(FirebaseAuth.instance.currentUser!.uid, widget.friendId);
     _myEmail = FirebaseAuth.instance.currentUser?.email;
+    _loadAvatarUrls();
     _listenMessages();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _myAvatarSubscription?.cancel();
+    _friendAvatarSubscription?.cancel();
+    super.dispose();
   }
 
   String _getChatId(String uid1, String uid2) {
@@ -89,13 +106,89 @@ class _ChatPageState extends State<ChatPage> {
     _controller.clear();
   }
 
+  Future<void> _loadAvatarUrls() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Load my avatar
+      final myAvatarRef = FirebaseDatabase.instance.ref('users/${user.uid}/avatarUrl');
+      final myAvatarSnap = await myAvatarRef.get();
+      if (myAvatarSnap.exists) {
+        print('Chat: Initial my avatar loaded: ${myAvatarSnap.value}');
+        setState(() {
+          _myAvatarUrl = myAvatarSnap.value as String?;
+        });
+      } else {
+        print('Chat: No initial my avatar found');
+      }
+      
+      // Lắng nghe thay đổi avatar của tôi
+      _myAvatarSubscription = myAvatarRef.onValue.listen((event) {
+        if (event.snapshot.exists && mounted) {
+          print('Chat: My avatar updated to: ${event.snapshot.value}');
+          setState(() {
+            _myAvatarUrl = event.snapshot.value as String?;
+          });
+          // Force rebuild để cập nhật avatar ngay lập tức
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {});
+            }
+          });
+          // Force refresh messages
+          _refreshMessages();
+        }
+      });
+
+      // Load friend avatar
+      final friendAvatarRef = FirebaseDatabase.instance.ref('users/${widget.friendId}/avatarUrl');
+      final friendAvatarSnap = await friendAvatarRef.get();
+      if (friendAvatarSnap.exists) {
+        print('Chat: Initial friend avatar loaded: ${friendAvatarSnap.value}');
+        setState(() {
+          _friendAvatarUrl = friendAvatarSnap.value as String?;
+        });
+      } else {
+        print('Chat: No initial friend avatar found');
+      }
+      
+      // Lắng nghe thay đổi avatar của bạn bè
+      _friendAvatarSubscription = friendAvatarRef.onValue.listen((event) {
+        if (event.snapshot.exists && mounted) {
+          print('Chat: Friend avatar updated to: ${event.snapshot.value}');
+          setState(() {
+            _friendAvatarUrl = event.snapshot.value as String?;
+          });
+          // Force rebuild để cập nhật avatar ngay lập tức
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {});
+            }
+          });
+        }
+      });
+    }
+  }
+
+  void _refreshMessages() {
+    // Force rebuild toàn bộ chat
+    setState(() {});
+  }
+
   Widget _buildMessage(Map msg, bool isMe) {
-    final avaLetter = isMe
-        ? (_myEmail != null && _myEmail!.isNotEmpty ? _myEmail![0].toUpperCase() : '?')
-        : (widget.friendEmail.isNotEmpty ? widget.friendEmail[0].toUpperCase() : '?');
     final time = msg['timestamp'] != null
         ? DateFormat('HH:mm').format(DateTime.fromMillisecondsSinceEpoch(msg['timestamp']))
         : '';
+    
+    final avatarUrl = isMe ? _myAvatarUrl : _friendAvatarUrl;
+    final email = isMe ? (_myEmail ?? '') : widget.friendEmail;
+    
+    // Debug: In ra thông tin avatar
+    // if (isMe) {
+    //   print('Chat: Building message for me with avatar: $avatarUrl');
+    // } else {
+    //   print('Chat: Building message for friend with avatar: $avatarUrl');
+    // }
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
@@ -105,11 +198,7 @@ class _ChatPageState extends State<ChatPage> {
           if (!isMe)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.blue.shade100,
-                child: Text(avaLetter, style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.bold)),
-              ),
+              child: _buildAvatarWidget(avatarUrl, email),
             ),
           Flexible(
             child: Column(
@@ -145,13 +234,75 @@ class _ChatPageState extends State<ChatPage> {
           if (isMe)
             Padding(
               padding: const EdgeInsets.only(left: 6),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.green.shade100,
-                child: Text(avaLetter, style: const TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.bold)),
-              ),
+              child: _buildAvatarWidget(avatarUrl, email),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarWidget(String? avatarUrl, String email, {double radius = 16}) {
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      if (avatarUrl.startsWith('random:')) {
+        // Hiển thị random avatar với seed từ avatarUrl
+        final seed = avatarUrl.substring(7);
+        return RandomAvatar(
+          seed,
+          height: radius * 2,
+          width: radius * 2,
+        );
+      } else if (avatarUrl.startsWith('http')) {
+        // Hiển thị network image
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: CachedNetworkImage(
+            imageUrl: avatarUrl,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => _buildDefaultAvatar(email, radius),
+            errorWidget: (context, url, error) => _buildDefaultAvatar(email, radius),
+          ),
+        );
+      } else {
+        // Hiển thị local file
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Image.file(
+            File(avatarUrl),
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(email, radius),
+          ),
+        );
+      }
+    }
+    return _buildDefaultAvatar(email, radius);
+  }
+
+  Widget _buildDefaultAvatar(String email, double radius) {
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF10b981),
+            const Color(0xFF059669),
+          ],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          email.split('@')[0][0].toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
