@@ -42,13 +42,32 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
   Future<void> _acceptRequest(String fromUserId) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) return;
-    // Thêm vào danh sách bạn bè của cả hai
-    await FirebaseDatabase.instance.ref('users/$userId/friends/$fromUserId').set(true);
-    await FirebaseDatabase.instance.ref('users/$fromUserId/friends/$userId').set(true);
-    // Xóa lời mời
-    await FirebaseDatabase.instance.ref('friend_requests/$userId/$fromUserId').remove();
-    setState(() { _status = 'Đã xác nhận kết bạn với $fromUserId'; });
-    _loadRequests();
+    
+    try {
+      // Thêm vào danh sách bạn bè của cả hai
+      await FirebaseDatabase.instance.ref('users/$userId/friends/$fromUserId').set(true);
+      await FirebaseDatabase.instance.ref('users/$fromUserId/friends/$userId').set(true);
+      
+      // Xóa lời mời
+      await FirebaseDatabase.instance.ref('friend_requests/$userId/$fromUserId').remove();
+      
+      setState(() { 
+        _status = 'Đã xác nhận kết bạn thành công!'; 
+      });
+      
+      // Đợi một chút để Firebase cập nhật
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Thông báo cho trang danh sách bạn bè cập nhật
+      if (mounted) {
+        Navigator.pop(context, true); // Trả về true để báo hiệu cần refresh
+      }
+      
+    } catch (e) {
+      setState(() { 
+        _status = 'Lỗi khi xác nhận kết bạn: $e'; 
+      });
+    }
   }
 
   Future<void> _declineRequest(String fromUserId) async {

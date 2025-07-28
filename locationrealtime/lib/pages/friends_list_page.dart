@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'map_page.dart';
 import 'friend_search_page.dart';
@@ -27,6 +28,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
   Map<String, StreamSubscription> _friendAvatarSubscriptions = {};
   String _searchQuery = '';
   String? _userEmail;
+  
+  // Location tracking variables
+  Position? _currentPosition;
+  Map<String, double> _friendDistances = {};
+  Map<String, StreamSubscription> _friendLocationSubscriptions = {};
+  Timer? _distanceUpdateTimer;
 
   @override
   void initState() {
@@ -34,6 +41,9 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _loadUserData();
     _loadFriends();
     _loadFriendRequests();
+    _listenToFriendsChanges();
+    _getCurrentLocation();
+    _startDistanceUpdateTimer();
   }
 
   @override
@@ -42,6 +52,10 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _friendAvatarSubscriptions.values.forEach((subscription) {
       subscription.cancel();
     });
+    _friendLocationSubscriptions.values.forEach((subscription) {
+      subscription.cancel();
+    });
+    _distanceUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -120,6 +134,11 @@ class _FriendsListPageState extends State<FriendsListPage> {
         _friends = friendsList;
         _isLoading = false;
       });
+      
+      // Khởi tạo khoảng cách cho tất cả bạn bè
+      if (_currentPosition != null) {
+        _updateAllFriendDistances();
+      }
     } else {
       // Thử load theo cấu trúc mới
       final newFriendsRef = FirebaseDatabase.instance.ref(
@@ -153,6 +172,11 @@ class _FriendsListPageState extends State<FriendsListPage> {
           _friends = friendsList;
           _isLoading = false;
         });
+        
+        // Khởi tạo khoảng cách cho tất cả bạn bè
+        if (_currentPosition != null) {
+          _updateAllFriendDistances();
+        }
       } else {
         setState(() {
           _isLoading = false;
@@ -191,7 +215,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
     if (user == null) return;
 
     final requestsRef = FirebaseDatabase.instance.ref(
-      'friendRequests/${user.uid}',
+      'friend_requests/${user.uid}',
     );
     final requestsSnap = await requestsRef.get();
 
@@ -368,6 +392,132 @@ class _FriendsListPageState extends State<FriendsListPage> {
         ),
       ),
     );
+  }
+
+  void _listenToFriendsChanges() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final friendsRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/friends',
+    );
+    
+    friendsRef.onValue.listen((event) {
+      if (mounted) {
+        // Cập nhật danh sách bạn bè khi có thay đổi
+        _loadFriends();
+      }
+    });
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled.');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('Location permissions are denied');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('Location permissions are permanently denied');
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _currentPosition = position;
+      });
+
+      // Cập nhật khoảng cách cho tất cả bạn bè
+      _updateAllFriendDistances();
+    } catch (e) {
+      print('Error getting current location: $e');
+    }
+  }
+
+  void _startDistanceUpdateTimer() {
+    _distanceUpdateTimer?.cancel();
+    _distanceUpdateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_currentPosition != null) {
+        _updateAllFriendDistances();
+      }
+    });
+  }
+
+  void _updateAllFriendDistances() {
+    if (_currentPosition == null) return;
+
+    for (final friend in _friends) {
+      final friendId = friend['id'] as String;
+      _updateFriendDistance(friendId);
+    }
+  }
+
+  void _updateFriendDistance(String friendId) {
+    if (_currentPosition == null) return;
+
+    final locationRef = FirebaseDatabase.instance.ref(
+      'users/$friendId/location',
+    );
+
+    // Hủy subscription cũ nếu có
+    _friendLocationSubscriptions[friendId]?.cancel();
+
+    // Lắng nghe vị trí của bạn bè
+    final subscription = locationRef.onValue.listen((event) {
+      if (event.snapshot.exists && mounted) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>;
+        final lat = data['latitude'] as double?;
+        final lng = data['longitude'] as double?;
+        final isOnline = data['isOnline'] as bool? ?? false;
+        final isSharing = data['isSharingLocation'] as bool? ?? false;
+
+        if (lat != null && lng != null && isOnline && isSharing) {
+          // Tính khoảng cách
+          final distance = Geolocator.distanceBetween(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            lat,
+            lng,
+          ) / 1000; // Chuyển đổi sang km
+
+          setState(() {
+            _friendDistances[friendId] = distance;
+          });
+        } else {
+          setState(() {
+            _friendDistances.remove(friendId);
+          });
+        }
+      } else {
+        setState(() {
+          _friendDistances.remove(friendId);
+        });
+      }
+    });
+
+    _friendLocationSubscriptions[friendId] = subscription;
+  }
+
+  String _formatDistance(double? distance) {
+    if (distance == null) return 'N/A';
+    if (distance < 1) {
+      return '${(distance * 1000).toStringAsFixed(0)}m';
+    } else {
+      return '${distance.toStringAsFixed(1)}km';
+    }
   }
 
   @override
@@ -583,6 +733,31 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                             fontSize: 14,
                                             color: Colors.grey.shade600,
                                           ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.location_on_rounded,
+                                              size: 14,
+                                              color: _friendDistances[friend['id']] != null
+                                                  ? const Color(0xFF10b981)
+                                                  : Colors.grey.shade400,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _friendDistances[friend['id']] != null
+                                                  ? _formatDistance(_friendDistances[friend['id']])
+                                                  : 'Không chia sẻ vị trí',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: _friendDistances[friend['id']] != null
+                                                    ? const Color(0xFF10b981)
+                                                    : Colors.grey.shade500,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),

@@ -43,6 +43,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     _loadAvatar();
     _loadStats();
     _generateAvailableAvatars();
+    _listenToFriendRequests();
   }
 
   @override
@@ -152,7 +153,7 @@ class _UserProfilePageState extends State<UserProfilePage>
 
     // Load request count
     final requestsRef = FirebaseDatabase.instance.ref(
-      'friendRequests/${user!.uid}',
+      'friend_requests/${user!.uid}',
     );
     final requestsSnap = await requestsRef.get();
     if (requestsSnap.exists) {
@@ -287,6 +288,11 @@ class _UserProfilePageState extends State<UserProfilePage>
 
         // Xóa trạng thái chia sẻ khỏi Firebase
         if (user != null) {
+          // Xóa toàn bộ dữ liệu vị trí để marker biến mất
+          await FirebaseDatabase.instance
+              .ref('users/${user!.uid}/location')
+              .remove();
+
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/isSharingLocation')
               .remove();
@@ -767,41 +773,41 @@ class _UserProfilePageState extends State<UserProfilePage>
                     const SizedBox(height: 20),
 
                     // Friend Requests Card
-                    if (_requestCount > 0)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.people,
-                                  color: Color(0xFF667eea),
-                                  size: 24,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.people,
+                                color: Color(0xFF667eea),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Lời mời kết bạn',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1e293b),
                                 ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'Lời mời kết bạn',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1e293b),
-                                  ),
-                                ),
-                                const Spacer(),
+                              ),
+                              const Spacer(),
+                              if (_requestCount > 0)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -819,31 +825,46 @@ class _UserProfilePageState extends State<UserProfilePage>
                                     ),
                                   ),
                                 ),
-                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _requestCount > 0 
+                              ? 'Bạn có $_requestCount lời mời kết bạn mới'
+                              : 'Không có lời mời kết bạn nào',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF64748b),
                             ),
-                            const SizedBox(height: 10),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const FriendRequestsPage(),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF667eea),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                          ),
+                          const SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const FriendRequestsPage(),
                                 ),
+                              );
+                              
+                              // Nếu có kết quả từ trang lời mời kết bạn, cập nhật stats
+                              if (result == true) {
+                                _loadStats();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF667eea),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Text('Xem lời mời'),
                             ),
-                          ],
-                        ),
+                            child: Text(_requestCount > 0 ? 'Xem lời mời' : 'Quản lý lời mời'),
+                          ),
+                        ],
                       ),
+                    ),
 
                     const SizedBox(height: 20),
 
@@ -951,5 +972,28 @@ class _UserProfilePageState extends State<UserProfilePage>
         ),
       ],
     );
+  }
+
+  Future<void> _listenToFriendRequests() async {
+    if (user == null) return;
+
+    final requestsRef = FirebaseDatabase.instance.ref(
+      'friend_requests/${user!.uid}',
+    );
+    
+    requestsRef.onValue.listen((event) {
+      if (mounted) {
+        if (event.snapshot.exists) {
+          final requests = event.snapshot.value as Map?;
+          setState(() {
+            _requestCount = requests?.length ?? 0;
+          });
+        } else {
+          setState(() {
+            _requestCount = 0;
+          });
+        }
+      }
+    });
   }
 }

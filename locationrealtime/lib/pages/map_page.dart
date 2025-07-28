@@ -57,6 +57,7 @@ class _MapPageState extends State<MapPage> {
     _loadMyAvatar();
     _listenToFriendsLocations();
     _loadCurrentRoute();
+    _listenToMySharingStatus(); // Lắng nghe trạng thái chia sẻ vị trí của bản thân
 
     if (widget.focusFriendId != null) {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
@@ -548,14 +549,46 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _autoRouteToFriend(String friendId, String? friendEmail) async {
-    // Lắng nghe vị trí bạn bè
-    final locationRef = FirebaseDatabase.instance.ref('locations/$friendId');
-    locationRef.onValue.listen((event) {
+    // Kiểm tra vị trí hiện tại của bạn bè trước
+    final locationRef = FirebaseDatabase.instance.ref('users/$friendId/location');
+    final currentLocationSnap = await locationRef.get();
+    
+    if (currentLocationSnap.exists && _currentPosition != null) {
+      final data = currentLocationSnap.value as Map;
+      final lat = data['latitude'] as double? ?? (data['latitude'] as num).toDouble();
+      final lng = data['longitude'] as double? ?? (data['longitude'] as num).toDouble();
+      final isOnline = data['isOnline'] as bool? ?? false;
+      final isSharing = data['isSharingLocation'] as bool? ?? false;
+      
+      if (lat != null && lng != null && isOnline && isSharing) {
+        final LatLng friendPos = LatLng(lat, lng);
+        
+        // Focus camera vào vị trí bạn bè ngay lập tức
+        mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(friendPos, 16),
+        );
+        
+        _drawRouteToFriend(friendId, friendPos);
+        _startRouteTimer(friendId, friendPos, interval: 8);
+      }
+    }
+    
+    // Lắng nghe thay đổi vị trí bạn bè
+    locationRef.onValue.listen((event) async {
       if (event.snapshot.exists && _currentPosition != null) {
         final data = event.snapshot.value as Map;
-        final lat = data['lat'] as double? ?? (data['lat'] as num).toDouble();
-        final lng = data['lng'] as double? ?? (data['lng'] as num).toDouble();
+        final lat = data['latitude'] as double? ?? (data['latitude'] as num).toDouble();
+        final lng = data['longitude'] as double? ?? (data['longitude'] as num).toDouble();
         final LatLng friendPos = LatLng(lat, lng);
+        
+        // Đợi một chút để đảm bảo mapController đã sẵn sàng
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Focus camera vào vị trí bạn bè
+        mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(friendPos, 16),
+        );
+        
         _drawRouteToFriend(friendId, friendPos);
         _startRouteTimer(friendId, friendPos, interval: 8);
       } else {
@@ -873,23 +906,74 @@ class _MapPageState extends State<MapPage> {
     if (_currentPosition == null) return;
 
     final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email ?? '';
+    if (user == null) return;
 
-    // Tạo custom marker với avatar
-    final markerIcon = await _createCustomMarkerFromAvatar(_myAvatarUrl, email);
+    // Kiểm tra trạng thái chia sẻ vị trí
+    final sharingRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/isSharingLocation',
+    );
+    final sharingSnap = await sharingRef.get();
+    
+    // Chỉ tạo marker nếu đang chia sẻ vị trí
+    if (sharingSnap.exists && sharingSnap.value == true) {
+      final email = user.email ?? '';
 
-    setState(() {
-      _markers = {
-        Marker(
-          markerId: const MarkerId('me'),
-          position: _currentPosition!,
-          icon: markerIcon,
-          infoWindow: InfoWindow(
-            title: email.split('@')[0], 
-            snippet: 'Bạn - ${_getAvatarType(_myAvatarUrl)}',
+      // Tạo custom marker với avatar
+      final markerIcon = await _createCustomMarkerFromAvatar(_myAvatarUrl, email);
+
+      setState(() {
+        _markers = {
+          Marker(
+            markerId: const MarkerId('me'),
+            position: _currentPosition!,
+            icon: markerIcon,
+            infoWindow: InfoWindow(
+              title: email.split('@')[0], 
+              snippet: 'Bạn - ${_getAvatarType(_myAvatarUrl)}',
+            ),
           ),
-        ),
-      };
+        };
+      }
+    } else {
+      // Xóa marker nếu không chia sẻ vị trí
+      setState(() {
+        _markers = {};
+      });
+    }
+  }
+
+  void _listenToMySharingStatus() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final sharingRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/isSharingLocation',
+    );
+    
+    sharingRef.onValue.listen((event) {
+      if (mounted) {
+        // Cập nhật marker khi trạng thái chia sẻ thay đổi
+        _createMyMarker();
+      }
+    });
+
+    // Lắng nghe thay đổi dữ liệu vị trí
+    final locationRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/location',
+    );
+    
+    locationRef.onValue.listen((event) {
+      if (mounted) {
+        if (!event.snapshot.exists) {
+          // Xóa marker khi dữ liệu vị trí bị xóa
+          setState(() {
+            _markers = {};
+          });
+        } else {
+          // Cập nhật marker khi có dữ liệu vị trí mới
+          _createMyMarker();
+        }
+      }
     });
   }
 
