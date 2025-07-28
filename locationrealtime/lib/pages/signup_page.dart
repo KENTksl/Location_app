@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'login_page.dart';
 
 class SignupPage extends StatefulWidget {
@@ -52,11 +53,21 @@ class _SignupPageState extends State<SignupPage> {
     });
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
       setState(() => _message = 'Đăng ký thành công!');
+
+      // Lưu thông tin user vào Realtime Database
+      final user = userCredential.user;
+      if (user != null) {
+        await FirebaseDatabase.instance.ref('users/${user.uid}').set({
+          'email': user.email,
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+      }
 
       // Chờ một chút để hiển thị thông báo thành công
       await Future.delayed(const Duration(seconds: 2));
