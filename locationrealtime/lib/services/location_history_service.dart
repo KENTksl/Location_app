@@ -10,6 +10,12 @@ class LocationHistoryService {
   static const String _currentRouteKey = 'current_route';
   static const String _statsKey = 'location_stats';
 
+  // Validation constants
+  static const double _minDistance = 1.0; // 1 meter minimum
+  static const Duration _minDuration = Duration(
+    seconds: 3,
+  ); // 3 seconds minimum
+
   final FirebaseDatabase _database = FirebaseDatabase.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -97,6 +103,22 @@ class LocationHistoryService {
     return totalDistance;
   }
 
+  // Kiểm tra route có hợp lệ không
+  bool isValidRoute(List<LocationPoint> points) {
+    if (points.length < 2) return false;
+
+    final totalDistance = calculateTotalDistance(points);
+    final duration = points.last.timestamp.difference(points.first.timestamp);
+
+    // Kiểm tra khoảng cách tối thiểu (1m = 0.001km)
+    if (totalDistance < _minDistance / 1000) return false;
+
+    // Kiểm tra thời gian tối thiểu (3s)
+    if (duration < _minDuration) return false;
+
+    return true;
+  }
+
   // Tạo route mới
   LocationRoute createRoute({
     required String name,
@@ -144,6 +166,59 @@ class LocationHistoryService {
   Future<void> clearCurrentRoute() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currentRouteKey);
+  }
+
+  // Kiểm tra permission và service
+  Future<bool> checkLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
+  }
+
+  // Lấy vị trí hiện tại với error handling
+  Future<LocationPoint?> getCurrentLocationPoint() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      return LocationPoint(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        timestamp: DateTime.now(),
+        accuracy: position.accuracy,
+        speed: position.speed,
+        altitude: position.altitude,
+      );
+    } catch (e) {
+      print('Error getting current location: $e');
+      return null;
+    }
+  }
+
+  // Kiểm tra xem có nên thêm điểm mới không
+  bool shouldAddPoint(
+    LocationPoint newPoint,
+    List<LocationPoint> existingPoints,
+  ) {
+    if (existingPoints.isEmpty) return true;
+
+    final lastPoint = existingPoints.last;
+    final distance = calculateDistance(lastPoint, newPoint);
+    final timeDiff = newPoint.timestamp.difference(lastPoint.timestamp);
+
+    // Thêm điểm nếu khoảng cách > 1m hoặc thời gian > 10s
+    return distance > _minDistance / 1000 || timeDiff.inSeconds > 10;
   }
 
   // Tính toán stats
@@ -245,5 +320,49 @@ class LocationHistoryService {
       return route.totalDistance >= minDistance &&
           route.totalDistance <= maxDistance;
     }).toList();
+  }
+
+  // Xóa route
+  Future<void> deleteRoute(String routeId) async {
+    // Xóa từ local storage
+    final prefs = await SharedPreferences.getInstance();
+    final routesJson = prefs.getStringList(_routesKey) ?? [];
+    routesJson.removeWhere((json) {
+      try {
+        final route = LocationRoute.fromJson(jsonDecode(json));
+        return route.id == routeId;
+      } catch (e) {
+        return false;
+      }
+    });
+    await prefs.setStringList(_routesKey, routesJson);
+
+    // Xóa từ Firebase
+    final user = _auth.currentUser;
+    if (user != null) {
+      await _database
+          .ref('users/${user.uid}/locationHistory/$routeId')
+          .remove();
+    }
+  }
+
+  // Export route data
+  Map<String, dynamic> exportRouteData(LocationRoute route) {
+    return {
+      'route': route.toJson(),
+      'exportedAt': DateTime.now().toIso8601String(),
+      'version': '1.0',
+    };
+  }
+
+  // Import route data
+  LocationRoute? importRouteData(Map<String, dynamic> data) {
+    try {
+      final routeData = data['route'] as Map<String, dynamic>;
+      return LocationRoute.fromJson(routeData);
+    } catch (e) {
+      print('Error importing route data: $e');
+      return null;
+    }
   }
 }

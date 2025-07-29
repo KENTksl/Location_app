@@ -383,9 +383,18 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.visibility),
-          onPressed: () => _showRouteDetails(route),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.visibility),
+              onPressed: () => _showRouteDetails(route),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => _deleteRoute(route),
+            ),
+          ],
         ),
         onTap: () => _showRouteDetails(route),
       ),
@@ -396,6 +405,36 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => RouteDetailsPage(route: route)),
+    );
+  }
+
+  void _deleteRoute(LocationRoute route) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa lộ trình'),
+        content: Text('Bạn có chắc muốn xóa lộ trình "${route.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _service.deleteRoute(route.id);
+              _loadData(); // Reload data
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã xóa lộ trình'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }

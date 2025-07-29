@@ -48,6 +48,8 @@ class _MapPageState extends State<MapPage> {
   LocationRoute? _currentRoute;
   bool _isRecordingRoute = false;
   Timer? _routeRecordingTimer;
+  StreamSubscription<Position>? _locationSubscription;
+  bool _hasLocationPermission = false;
 
   @override
   void initState() {
@@ -57,6 +59,7 @@ class _MapPageState extends State<MapPage> {
     _loadMyAvatar();
     _listenToFriendsLocations();
     _loadCurrentRoute();
+    _listenToMySharingStatus(); // Lắng nghe trạng thái chia sẻ vị trí của bản thân
 
     if (widget.focusFriendId != null) {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
@@ -226,6 +229,7 @@ class _MapPageState extends State<MapPage> {
     });
     _routeTimer?.cancel();
     _routeRecordingTimer?.cancel();
+    _locationSubscription?.cancel();
     super.dispose();
   }
 
@@ -288,7 +292,7 @@ class _MapPageState extends State<MapPage> {
                 icon: markerIcon,
                 infoWindow: InfoWindow(
                   title: friendEmail.split('@')[0],
-                  snippet: 'Online',
+                  snippet: 'Bạn bè - ${_getAvatarType(avatarUrl)}',
                 ),
               );
             });
@@ -548,14 +552,49 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _autoRouteToFriend(String friendId, String? friendEmail) async {
-    // Lắng nghe vị trí bạn bè
-    final locationRef = FirebaseDatabase.instance.ref('locations/$friendId');
-    locationRef.onValue.listen((event) {
+    // Kiểm tra vị trí hiện tại của bạn bè trước
+    final locationRef = FirebaseDatabase.instance.ref(
+      'users/$friendId/location',
+    );
+    final currentLocationSnap = await locationRef.get();
+
+    if (currentLocationSnap.exists && _currentPosition != null) {
+      final data = currentLocationSnap.value as Map;
+      final lat =
+          data['latitude'] as double? ?? (data['latitude'] as num).toDouble();
+      final lng =
+          data['longitude'] as double? ?? (data['longitude'] as num).toDouble();
+      final isOnline = data['isOnline'] as bool? ?? false;
+      final isSharing = data['isSharingLocation'] as bool? ?? false;
+
+      if (lat != null && lng != null && isOnline && isSharing) {
+        final LatLng friendPos = LatLng(lat, lng);
+
+        // Focus camera vào vị trí bạn bè ngay lập tức
+        mapController?.animateCamera(CameraUpdate.newLatLngZoom(friendPos, 16));
+
+        _drawRouteToFriend(friendId, friendPos);
+        _startRouteTimer(friendId, friendPos, interval: 8);
+      }
+    }
+
+    // Lắng nghe thay đổi vị trí bạn bè
+    locationRef.onValue.listen((event) async {
       if (event.snapshot.exists && _currentPosition != null) {
         final data = event.snapshot.value as Map;
-        final lat = data['lat'] as double? ?? (data['lat'] as num).toDouble();
-        final lng = data['lng'] as double? ?? (data['lng'] as num).toDouble();
+        final lat =
+            data['latitude'] as double? ?? (data['latitude'] as num).toDouble();
+        final lng =
+            data['longitude'] as double? ??
+            (data['longitude'] as num).toDouble();
         final LatLng friendPos = LatLng(lat, lng);
+
+        // Đợi một chút để đảm bảo mapController đã sẵn sàng
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Focus camera vào vị trí bạn bè
+        mapController?.animateCamera(CameraUpdate.newLatLngZoom(friendPos, 16));
+
         _drawRouteToFriend(friendId, friendPos);
         _startRouteTimer(friendId, friendPos, interval: 8);
       } else {
@@ -783,6 +822,71 @@ class _MapPageState extends State<MapPage> {
                 ),
               ),
             ),
+
+          // Recording Route Card
+          if (_isRecordingRoute)
+            Positioned(
+              bottom: 20,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.fiber_manual_record,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Đang ghi lộ trình',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${_currentRoutePoints.length} điểm - ${_locationHistoryService.calculateTotalDistance(_currentRoutePoints).toStringAsFixed(2)}km',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.stop_rounded, color: Colors.white),
+                      onPressed: _stopRouteRecording,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -822,26 +926,25 @@ class _MapPageState extends State<MapPage> {
     String email,
   ) async {
     try {
-      // Sử dụng màu sắc khác nhau cho từng loại avatar
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         if (avatarUrl.startsWith('random:')) {
-          // Random avatar - màu xanh dương
+          // Random avatar - màu xanh dương với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           );
         } else if (avatarUrl.startsWith('http')) {
-          // Network image - màu cam
+          // Network image - màu cam với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueOrange,
           );
         } else {
-          // Local file - màu tím
+          // Local file - màu tím với chữ cái đầu
           return BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueViolet,
           );
         }
       } else {
-        // Default avatar - màu xanh lá
+        // Default avatar - màu xanh lá với chữ cái đầu
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
       }
     } catch (e) {
@@ -850,25 +953,116 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
+  Future<BitmapDescriptor> _createMarkerFromRandomAvatar(String seed) async {
+    // Sử dụng màu xanh dương cho random avatar
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromNetworkImage(
+    String imageUrl,
+  ) async {
+    // Sử dụng màu cam cho network image
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromLocalFile(String filePath) async {
+    // Sử dụng màu tím cho local file
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+  }
+
+  Future<BitmapDescriptor> _createMarkerFromDefaultAvatar(String email) async {
+    // Sử dụng màu xanh lá cho default avatar
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+  }
+
   Future<void> _createMyMarker() async {
     if (_currentPosition == null) return;
 
     final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email ?? '';
+    if (user == null) return;
 
-    // Tạo custom marker với avatar
-    final markerIcon = await _createCustomMarkerFromAvatar(_myAvatarUrl, email);
+    // Kiểm tra trạng thái chia sẻ vị trí
+    final sharingRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/isSharingLocation',
+    );
+    final sharingSnap = await sharingRef.get();
 
-    setState(() {
-      _markers = {
-        Marker(
-          markerId: const MarkerId('me'),
-          position: _currentPosition!,
-          icon: markerIcon,
-          infoWindow: InfoWindow(title: email.split('@')[0], snippet: 'Online'),
-        ),
-      };
+    // Chỉ tạo marker nếu đang chia sẻ vị trí
+    if (sharingSnap.exists && sharingSnap.value == true) {
+      final email = user.email ?? '';
+
+      // Tạo custom marker với avatar
+      final markerIcon = await _createCustomMarkerFromAvatar(
+        _myAvatarUrl,
+        email,
+      );
+
+      setState(() {
+        _markers = {
+          Marker(
+            markerId: const MarkerId('me'),
+            position: _currentPosition!,
+            icon: markerIcon,
+            infoWindow: InfoWindow(
+              title: email.split('@')[0],
+              snippet: 'Bạn - ${_getAvatarType(_myAvatarUrl)}',
+            ),
+          ),
+        };
+      });
+    } else {
+      // Xóa marker nếu không chia sẻ vị trí
+      setState(() {
+        _markers = {};
+      });
+    }
+  }
+
+  void _listenToMySharingStatus() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final sharingRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/isSharingLocation',
+    );
+
+    sharingRef.onValue.listen((event) {
+      if (mounted) {
+        // Cập nhật marker khi trạng thái chia sẻ thay đổi
+        _createMyMarker();
+      }
     });
+
+    // Lắng nghe thay đổi dữ liệu vị trí
+    final locationRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/location',
+    );
+
+    locationRef.onValue.listen((event) {
+      if (mounted) {
+        if (!event.snapshot.exists) {
+          // Xóa marker khi dữ liệu vị trí bị xóa
+          setState(() {
+            _markers = {};
+          });
+        } else {
+          // Cập nhật marker khi có dữ liệu vị trí mới
+          _createMyMarker();
+        }
+      }
+    });
+  }
+
+  String _getAvatarType(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return 'Default Avatar';
+    } else if (avatarUrl.startsWith('random:')) {
+      return 'Random Avatar';
+    } else if (avatarUrl.startsWith('http')) {
+      return 'Network Avatar';
+    } else {
+      return 'Local Avatar';
+    }
   }
 
   // Location History Methods
@@ -880,46 +1074,92 @@ class _MapPageState extends State<MapPage> {
         setState(() {
           _isRecordingRoute = true;
         });
+        // Resume location tracking
+        _startLocationTracking();
       }
     } catch (e) {
       print('Error loading current route: $e');
     }
   }
 
-  void _startRouteRecording() {
-    if (_currentPosition == null) return;
+  Future<void> _checkLocationPermission() async {
+    _hasLocationPermission = await _locationHistoryService
+        .checkLocationPermission();
+    if (!_hasLocationPermission) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cần quyền truy cập vị trí để ghi lộ trình'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _startRouteRecording() async {
+    // Kiểm tra permission trước
+    await _checkLocationPermission();
+    if (!_hasLocationPermission) return;
+
+    // Lấy vị trí hiện tại
+    final currentPoint = await _locationHistoryService
+        .getCurrentLocationPoint();
+    if (currentPoint == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể lấy vị trí hiện tại'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isRecordingRoute = true;
-      _currentRoutePoints = [
-        LocationPoint(
-          latitude: _currentPosition!.latitude,
-          longitude: _currentPosition!.longitude,
-          timestamp: DateTime.now(),
-        ),
-      ];
+      _currentRoutePoints = [currentPoint];
     });
 
-    // Bắt đầu ghi lại vị trí mỗi 10 giây
-    _routeRecordingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _addLocationPoint();
-    });
+    // Bắt đầu theo dõi vị trí real-time
+    _startLocationTracking();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bắt đầu ghi lộ trình'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   void _stopRouteRecording() async {
-    _routeRecordingTimer?.cancel();
+    _locationSubscription?.cancel();
 
-    if (_currentRoutePoints.length < 2) {
+    // Kiểm tra route có hợp lệ không
+    if (!_locationHistoryService.isValidRoute(_currentRoutePoints)) {
       setState(() {
         _isRecordingRoute = false;
         _currentRoutePoints = [];
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lộ trình quá ngắn hoặc thời gian quá ít'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
-    // Tạo route mới
+    // Tạo route mới với tên tự động
+    final routeName =
+        _currentRoute?.name ??
+        _locationHistoryService.generateRouteName(
+          _locationHistoryService.createRoute(
+            name: 'Temp',
+            points: _currentRoutePoints,
+          ),
+        );
+
     final route = _locationHistoryService.createRoute(
-      name: _locationHistoryService.generateRouteName(_currentRoute!),
+      name: routeName,
       points: _currentRoutePoints,
     );
 
@@ -935,34 +1175,80 @@ class _MapPageState extends State<MapPage> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã lưu lộ trình mới'),
+      SnackBar(
+        content: Text(
+          'Đã lưu lộ trình: ${route.totalDistance.toStringAsFixed(2)}km',
+        ),
         backgroundColor: Colors.green,
       ),
     );
   }
 
-  void _addLocationPoint() async {
-    if (_currentPosition == null) return;
+  void _startLocationTracking() {
+    _locationSubscription?.cancel();
 
-    final point = LocationPoint(
-      latitude: _currentPosition!.latitude,
-      longitude: _currentPosition!.longitude,
-      timestamp: DateTime.now(),
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 1, // 1 meter
+      timeLimit: Duration(seconds: 30),
     );
 
-    setState(() {
-      _currentRoutePoints.add(point);
-    });
+    _locationSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position position) {
+            _onLocationUpdate(position);
+          },
+          onError: (error) {
+            print('Location stream error: $error');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Lỗi theo dõi vị trí: $error'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+        );
+  }
 
-    // Cập nhật current route
-    if (_currentRoute != null) {
-      _currentRoute = _locationHistoryService.createRoute(
-        name: _currentRoute!.name,
-        points: _currentRoutePoints,
-        description: _currentRoute!.description,
-      );
-      await _locationHistoryService.saveCurrentRoute(_currentRoute!);
+  void _onLocationUpdate(Position position) async {
+    if (!_isRecordingRoute) return;
+
+    final newPoint = LocationPoint(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      timestamp: DateTime.now(),
+      accuracy: position.accuracy,
+      speed: position.speed,
+      altitude: position.altitude,
+    );
+
+    // Kiểm tra xem có nên thêm điểm mới không
+    if (_locationHistoryService.shouldAddPoint(newPoint, _currentRoutePoints)) {
+      setState(() {
+        _currentRoutePoints.add(newPoint);
+      });
+
+      // Cập nhật current route
+      if (_currentRoute != null) {
+        _currentRoute = _locationHistoryService.createRoute(
+          name: _currentRoute!.name,
+          points: _currentRoutePoints,
+          description: _currentRoute!.description,
+        );
+        await _locationHistoryService.saveCurrentRoute(_currentRoute!);
+      } else {
+        _currentRoute = _locationHistoryService.createRoute(
+          name: 'Lộ trình đang ghi',
+          points: _currentRoutePoints,
+        );
+        await _locationHistoryService.saveCurrentRoute(_currentRoute!);
+      }
+
+      // Cập nhật vị trí hiện tại trên map
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+      });
+      await _createMyMarker();
     }
   }
 
