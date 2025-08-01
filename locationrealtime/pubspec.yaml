@@ -8,6 +8,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  icons_launcher: ^3.0.1
   cupertino_icons: ^1.0.8
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.3
@@ -20,6 +21,14 @@ dependencies:
   random_avatar: ^0.0.8
   shared_preferences: ^2.2.2
   path_provider: ^2.1.2
+
+icons_launcher:
+  image_path: 'assets/icon.png'
+  platforms:
+    android:
+      enable: true
+    ios:
+      enable: true
 
 dev_dependencies:
   flutter_test:

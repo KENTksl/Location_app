@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../theme.dart';
 import 'chat_page.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -112,103 +113,92 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tin nhắn'),
-        backgroundColor: Colors.blue,
-        elevation: 1,
+      appBar: AppTheme.appBar(
+        title: 'Tin nhắn',
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadChatList,
             tooltip: 'Làm mới',
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _chatList.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'Chưa có cuộc trò chuyện nào',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Hãy kết bạn và bắt đầu trò chuyện!',
-                    style: TextStyle(color: Colors.blueGrey),
-                  ),
-                ],
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _chatList.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final chat = _chatList[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 2,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    leading: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.blue.shade100,
-                      child: Text(
-                        (chat['friendEmail'] != null &&
-                                chat['friendEmail'].isNotEmpty)
-                            ? chat['friendEmail'][0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        child: _loading
+            ? AppTheme.loadingWidget(message: 'Đang tải tin nhắn...')
+            : _chatList.isEmpty
+            ? AppTheme.emptyStateWidget(
+                message:
+                    'Chưa có cuộc trò chuyện nào.\nHãy kết bạn và bắt đầu trò chuyện!',
+                icon: Icons.chat_bubble_outline_rounded,
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(AppTheme.spacingM),
+                itemCount: _chatList.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: AppTheme.spacingS),
+                itemBuilder: (context, index) {
+                  final chat = _chatList[index];
+                  return AppTheme.card(
+                    padding: const EdgeInsets.all(AppTheme.spacingM),
+                    borderRadius: AppTheme.borderRadiusL,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacingM,
+                        vertical: AppTheme.spacingS,
                       ),
-                    ),
-                    title: Text(
-                      chat['friendEmail'] ?? chat['friendId'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      chat['lastMessage'],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: chat['lastTime'].isNotEmpty
-                        ? Text(
-                            chat['lastTime'],
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          )
-                        : null,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatPage(
-                            friendId: chat['friendId'],
-                            friendEmail: chat['friendEmail'] ?? '',
+                      leading: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: Text(
+                          (chat['friendEmail'] != null &&
+                                  chat['friendEmail'].isNotEmpty)
+                              ? chat['friendEmail'][0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 24,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+                      ),
+                      title: Text(
+                        chat['friendEmail'] ?? chat['friendId'],
+                        style: AppTheme.bodyStyle.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        chat['lastMessage'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.captionStyle,
+                      ),
+                      trailing: chat['lastTime'].isNotEmpty
+                          ? Text(
+                              chat['lastTime'],
+                              style: AppTheme.captionStyle.copyWith(
+                                fontSize: 12,
+                              ),
+                            )
+                          : null,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatPage(
+                              friendId: chat['friendId'],
+                              friendEmail: chat['friendEmail'] ?? '',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

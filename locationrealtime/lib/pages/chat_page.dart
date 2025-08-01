@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
+import '../theme.dart';
 import 'dart:io';
 import 'dart:async'; // Added for StreamSubscription
 
@@ -210,31 +211,60 @@ class _ChatPageState extends State<ChatPage> {
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 2),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 16,
+                    vertical: AppTheme.spacingS,
+                    horizontal: AppTheme.spacingM,
                   ),
                   decoration: BoxDecoration(
-                    color: isMe ? Colors.blue : Colors.grey.shade200,
+                    gradient: isMe ? AppTheme.primaryGradient : null,
+                    color: isMe ? null : Colors.white,
                     borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 16),
+                      topLeft: const Radius.circular(AppTheme.borderRadiusM),
+                      topRight: const Radius.circular(AppTheme.borderRadiusM),
+                      bottomLeft: Radius.circular(
+                        isMe ? AppTheme.borderRadiusM : AppTheme.borderRadiusS,
+                      ),
+                      bottomRight: Radius.circular(
+                        isMe ? AppTheme.borderRadiusS : AppTheme.borderRadiusM,
+                      ),
                     ),
+                    boxShadow: isMe
+                        ? AppTheme.buttonShadow
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                   ),
                   child: Text(
                     msg['text'] ?? '',
                     style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
+                      color: isMe ? Colors.white : AppTheme.textPrimaryColor,
                       fontSize: 16,
+                      fontWeight: isMe ? FontWeight.w500 : FontWeight.w400,
                     ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
-                  child: Text(
-                    time,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      time,
+                      style: AppTheme.captionStyle.copyWith(
+                        fontSize: 10,
+                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -297,10 +327,9 @@ class _ChatPageState extends State<ChatPage> {
       width: radius * 2,
       height: radius * 2,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [const Color(0xFF10b981), const Color(0xFF059669)],
-        ),
+        gradient: AppTheme.accentGradient,
         shape: BoxShape.circle,
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Center(
         child: Text(
@@ -319,61 +348,110 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(widget.friendEmail, style: const TextStyle(fontSize: 18)),
-          ],
-        ),
-        backgroundColor: Colors.blue,
-        elevation: 1,
+      appBar: AppTheme.appBar(
+        title: widget.friendEmail,
+        actions: [Icon(Icons.chat_bubble_outline_rounded, color: Colors.white)],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isMe = msg['from'] == user?.uid;
-                      return _buildMessage(msg, isMe);
-                    },
-                  ),
-          ),
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập tin nhắn...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        child: Column(
+          children: [
+            Expanded(
+              child: _loading
+                  ? AppTheme.loadingWidget(message: 'Đang tải tin nhắn...')
+                  : _messages.isEmpty
+                  ? AppTheme.emptyStateWidget(
+                      message: 'Chưa có tin nhắn nào.\nHãy bắt đầu trò chuyện!',
+                      icon: Icons.chat_bubble_outline_rounded,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(AppTheme.spacingM),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        final isMe = msg['from'] == user?.uid;
+                        return _buildMessage(msg, isMe);
+                      },
+                    ),
+            ),
+            // Input area
+            Container(
+              margin: const EdgeInsets.all(AppTheme.spacingM),
+              padding: const EdgeInsets.all(AppTheme.spacingM),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(AppTheme.borderRadiusL),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: 'Nhập tin nhắn...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusM,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusM,
+                          ),
+                          borderSide: BorderSide(
+                            color: AppTheme.primaryColor.withOpacity(0.3),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadiusM,
+                          ),
+                          borderSide: BorderSide(
+                            color: AppTheme.primaryColor,
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacingM,
+                          vertical: AppTheme.spacingS,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blue),
-                  onPressed: _sendMessage,
-                ),
-              ],
+                  const SizedBox(width: AppTheme.spacingS),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.borderRadiusM,
+                      ),
+                      boxShadow: AppTheme.buttonShadow,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadiusM,
+                        ),
+                        onTap: _sendMessage,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                          child: const Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

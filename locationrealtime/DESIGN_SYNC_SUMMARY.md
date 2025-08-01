@@ -65,6 +65,27 @@
 - ✅ Sử dụng AppTheme colors cho status messages
 - ✅ Sử dụng AppTheme spacing constants
 
+#### Chat List Page (`lib/pages/chat_list_page.dart`)
+- ✅ Sử dụng AppTheme.appBar cho app bar
+- ✅ Sử dụng AppTheme.primaryGradient cho background
+- ✅ Sử dụng AppTheme.loadingWidget cho loading state
+- ✅ Sử dụng AppTheme.emptyStateWidget cho empty state
+- ✅ Sử dụng AppTheme.card cho chat items
+- ✅ Sử dụng AppTheme colors cho avatars và text
+- ✅ Sử dụng AppTheme spacing constants
+
+#### Chat Page (`lib/pages/chat_page.dart`)
+- ✅ Sử dụng AppTheme.appBar cho app bar
+- ✅ Sử dụng AppTheme.primaryGradient cho background
+- ✅ Sử dụng AppTheme.loadingWidget cho loading state
+- ✅ Sử dụng AppTheme.emptyStateWidget cho empty state
+- ✅ Sử dụng AppTheme.primaryGradient cho message bubbles (sent)
+- ✅ Sử dụng AppTheme.surfaceColor cho message bubbles (received)
+- ✅ Sử dụng AppTheme.primaryGradient cho send button
+- ✅ Sử dụng AppTheme.accentGradient cho default avatars
+- ✅ Sử dụng AppTheme colors cho input field
+- ✅ Sử dụng AppTheme spacing constants
+
 ## Các trang cần cập nhật tiếp theo
 
 ### 1. Map Page (`lib/pages/map_page.dart`)
@@ -85,13 +106,7 @@
 - Cần cập nhật button styles
 - Cần cập nhật avatar selector style
 
-### 4. Chat Pages (`lib/pages/chat_page.dart`, `lib/pages/chat_list_page.dart`)
-- Cần cập nhật app bar style
-- Cần cập nhật message bubble styles
-- Cần cập nhật input field styles
-- Cần cập nhật list item styles
-
-### 5. Location History Page (`lib/pages/location_history_page.dart`)
+### 4. Location History Page (`lib/pages/location_history_page.dart`)
 - Cần cập nhật app bar style
 - Cần cập nhật history item styles
 - Cần cập nhật filter styles
