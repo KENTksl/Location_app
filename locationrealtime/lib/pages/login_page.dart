@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../theme.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import 'map_page.dart';
@@ -104,16 +105,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppTheme.spacingL),
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: SlideTransition(
@@ -127,7 +122,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadiusM,
+                        ),
                         border: Border.all(
                           color: Colors.white.withOpacity(0.2),
                           width: 1,
@@ -139,143 +136,94 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: AppTheme.spacingXL),
                     const Text(
                       'Chào mừng trở lại!',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: AppTheme.headingStyle,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppTheme.spacingS),
                     Text(
                       'Đăng nhập để kết nối với bạn bè',
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.subheadingStyle.copyWith(
                         color: Colors.white.withOpacity(0.8),
                       ),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: AppTheme.spacingXXL),
                     // Form đăng nhập
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
+                    AppTheme.card(
+                      padding: const EdgeInsets.all(AppTheme.spacingL),
+                      borderRadius: AppTheme.borderRadiusL,
                       child: Column(
                         children: [
                           // Email field
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
+                            decoration: AppTheme.getInputDecoration(
                               labelText: 'Email',
-                              prefixIcon: const Icon(Icons.email_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                              prefixIcon: Icons.email_rounded,
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppTheme.spacingM),
                           // Password field
                           TextField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
+                            decoration: AppTheme.getInputDecoration(
                               labelText: 'Mật khẩu',
-                              prefixIcon: const Icon(Icons.lock_rounded),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_rounded
-                                      : Icons.visibility_off_rounded,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                              prefixIcon: Icons.lock_rounded,
+                              suffixIcon: _obscurePassword
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
+                              onSuffixPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppTheme.spacingS),
                           // Forgot password
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: _navigateToForgotPassword,
-                              child: const Text(
+                              child: Text(
                                 'Quên mật khẩu?',
-                                style: TextStyle(color: Color(0xFF667eea)),
+                                style: TextStyle(color: AppTheme.primaryColor),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppTheme.spacingL),
                           // Login button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _signIn,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF667eea),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Đăng nhập',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                            ),
+                          AppTheme.primaryButton(
+                            text: 'Đăng nhập',
+                            onPressed: _isLoading ? () {} : _signIn,
+                            isLoading: _isLoading,
                           ),
                           if (_message.isNotEmpty) ...[
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppTheme.spacingM),
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(AppTheme.spacingM),
                               decoration: BoxDecoration(
                                 color: _message.contains('thành công')
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+                                    ? AppTheme.successColor.withOpacity(0.1)
+                                    : AppTheme.errorColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.borderRadiusS,
+                                ),
                                 border: Border.all(
                                   color: _message.contains('thành công')
-                                      ? Colors.green.withOpacity(0.3)
-                                      : Colors.red.withOpacity(0.3),
+                                      ? AppTheme.successColor.withOpacity(0.3)
+                                      : AppTheme.errorColor.withOpacity(0.3),
                                 ),
                               ),
                               child: Text(
                                 _message,
                                 style: TextStyle(
                                   color: _message.contains('thành công')
-                                      ? Colors.green
-                                      : Colors.red,
+                                      ? AppTheme.successColor
+                                      : AppTheme.errorColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

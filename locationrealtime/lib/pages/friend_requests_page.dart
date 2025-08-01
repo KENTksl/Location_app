@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../theme.dart';
 
 class FriendRequestsPage extends StatefulWidget {
   const FriendRequestsPage({super.key});
@@ -97,124 +98,167 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lời mời kết bạn'),
-        backgroundColor: Colors.blue,
-        elevation: 1,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _requests.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.mark_email_unread, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'Không có lời mời kết bạn nào.',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Hãy chủ động kết bạn với mọi người!',
-                    style: TextStyle(color: Colors.blueGrey),
-                  ),
-                ],
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _requests.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final req = _requests[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 2,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    leading: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.orange.shade100,
-                      child: Text(
-                        (req['email'] != null && req['email']!.isNotEmpty)
-                            ? req['email']![0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
+      appBar: AppTheme.appBar(title: 'Lời mời kết bạn'),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        child: _loading
+            ? AppTheme.loadingWidget(message: 'Đang tải...')
+            : _requests.isEmpty
+            ? AppTheme.emptyStateWidget(
+                message:
+                    'Không có lời mời kết bạn nào.\nHãy chủ động kết bạn với mọi người!',
+                icon: Icons.mark_email_unread_rounded,
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.all(AppTheme.spacingM),
+                itemCount: _requests.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: AppTheme.spacingS),
+                itemBuilder: (context, index) {
+                  final req = _requests[index];
+                  return AppTheme.card(
+                    padding: const EdgeInsets.all(AppTheme.spacingM),
+                    borderRadius: AppTheme.borderRadiusL,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacingL,
+                        vertical: AppTheme.spacingM,
+                      ),
+                      leading: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
+                        child: Text(
+                          (req['email'] != null && req['email']!.isNotEmpty)
+                              ? req['email']![0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            fontSize: 24,
+                            color: AppTheme.warningColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    title: Text(
-                      req['email'] ?? req['userId']!,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    subtitle: Text(
-                      'ID: ${req['userId']}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () => _acceptRequest(req['userId']!),
-                          icon: const Icon(Icons.check, color: Colors.white),
-                          label: const Text('Xác nhận'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      title: Text(
+                        req['email'] ?? req['userId']!,
+                        style: AppTheme.bodyStyle.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'ID: ${req['userId']}',
+                        style: AppTheme.captionStyle,
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Accept button
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.accentGradient,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.borderRadiusS,
+                              ),
+                              boxShadow: AppTheme.buttonShadow,
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 8,
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.borderRadiusS,
+                                ),
+                                onTap: () => _acceptRequest(req['userId']!),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppTheme.spacingM,
+                                    vertical: AppTheme.spacingS,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: AppTheme.spacingXS),
+                                      Text(
+                                        'Xác nhận',
+                                        style: AppTheme.buttonTextStyle
+                                            .copyWith(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _declineRequest(req['userId']!),
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          label: const Text('Từ chối'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          const SizedBox(width: AppTheme.spacingS),
+                          // Decline button
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorColor,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.borderRadiusS,
+                              ),
+                              boxShadow: AppTheme.buttonShadow,
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 8,
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.borderRadiusS,
+                                ),
+                                onTap: () => _declineRequest(req['userId']!),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppTheme.spacingM,
+                                    vertical: AppTheme.spacingS,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: AppTheme.spacingXS),
+                                      Text(
+                                        'Từ chối',
+                                        style: AppTheme.buttonTextStyle
+                                            .copyWith(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
+      ),
       bottomNavigationBar: _status.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Text(_status, style: const TextStyle(color: Colors.blue)),
+          ? Container(
+              padding: const EdgeInsets.all(AppTheme.spacingM),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Text(
+                _status,
+                style: TextStyle(
+                  color: _status.contains('thành công')
+                      ? AppTheme.successColor
+                      : AppTheme.primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
             )
           : null,
     );
