@@ -249,6 +249,35 @@ class _MapPageState extends State<MapPage> {
     } catch (e) {
       print('Lỗi listen friends locations: $e');
     }
+
+    // Thêm listener để theo dõi thay đổi danh sách bạn bè
+    final friendsRef = FirebaseDatabase.instance.ref(
+      'users/${user.uid}/friends',
+    );
+    friendsRef.onValue.listen((event) {
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        final friends = event.snapshot.value as Map;
+
+        // Hủy các stream cũ không còn trong danh sách bạn bè
+        final currentFriendIds = friends.keys.cast<String>();
+        _locationStreams.keys.toList().forEach((friendId) {
+          if (!currentFriendIds.contains(friendId)) {
+            _locationStreams[friendId]?.forEach((sub) => sub.cancel());
+            _locationStreams.remove(friendId);
+            setState(() {
+              _friendMarkers.remove(friendId);
+            });
+          }
+        });
+
+        // Thêm listener cho bạn bè mới
+        for (String friendId in currentFriendIds) {
+          if (!_locationStreams.containsKey(friendId)) {
+            _listenToFriendLocation(friendId);
+          }
+        }
+      }
+    });
   }
 
   void _listenToFriendLocation(String friendId) {
@@ -265,52 +294,77 @@ class _MapPageState extends State<MapPage> {
     final stream = locationRef.onValue;
 
     _locationStreams[friendId] = [
-      stream.listen((event) async {
-        if (event.snapshot.exists) {
-          final data = event.snapshot.value as Map<dynamic, dynamic>;
-          final lat = data['latitude'] as double?;
-          final lng = data['longitude'] as double?;
-          final isOnline = data['isOnline'] as bool? ?? false;
-          final isSharing = data['isSharingLocation'] as bool? ?? false;
+      stream.listen(
+        (event) async {
+          if (event.snapshot.exists) {
+            final data = event.snapshot.value as Map<dynamic, dynamic>;
+            final lat = data['latitude'] as double?;
+            final lng = data['longitude'] as double?;
+            final isOnline = data['isOnline'] as bool? ?? false;
+            final isSharing = data['isSharingLocation'] as bool? ?? false;
+            final lastUpdated = data['lastUpdated'] as int?;
 
-          if (lat != null && lng != null && isOnline && isSharing) {
-            final position = LatLng(lat, lng);
-            final friendEmail = _friendEmails[friendId] ?? '';
-            final avatarUrl = _friendAvatars[friendId];
+            // Kiểm tra xem dữ liệu có mới không (trong vòng 5 phút)
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final isDataFresh =
+                lastUpdated != null &&
+                (now - lastUpdated) < 5 * 60 * 1000; // 5 phút
 
-            // Tạo custom marker với avatar
-            final markerIcon = await _createCustomMarkerFromAvatar(
-              avatarUrl,
-              friendEmail,
-            );
+            if (lat != null &&
+                lng != null &&
+                isOnline &&
+                isSharing &&
+                isDataFresh) {
+              final position = LatLng(lat, lng);
+              final friendEmail = _friendEmails[friendId] ?? '';
+              final avatarUrl = _friendAvatars[friendId];
 
-            setState(() {
-              _friendMarkers[friendId] = Marker(
-                markerId: MarkerId(friendId),
-                position: position,
-                icon: markerIcon,
-                infoWindow: InfoWindow(
-                  title: friendEmail.split('@')[0],
-                  snippet: 'Bạn bè - ${_getAvatarType(avatarUrl)}',
-                ),
+              print('Friend location updated: $friendId at $lat, $lng');
+
+              // Tạo custom marker với avatar
+              final markerIcon = await _createCustomMarkerFromAvatar(
+                avatarUrl,
+                friendEmail,
               );
-            });
 
-            // Vẽ đường đi nếu có bạn bè được chọn
-            if (_selectedFriendId == friendId) {
-              _drawRouteToFriend(friendId, position);
+              setState(() {
+                _friendMarkers[friendId] = Marker(
+                  markerId: MarkerId(friendId),
+                  position: position,
+                  icon: markerIcon,
+                  infoWindow: InfoWindow(
+                    title: friendEmail.split('@')[0],
+                    snippet: 'Bạn bè - ${_getAvatarType(avatarUrl)}',
+                  ),
+                );
+              });
+
+              // Vẽ đường đi nếu có bạn bè được chọn
+              if (_selectedFriendId == friendId) {
+                _drawRouteToFriend(friendId, position);
+              }
+            } else {
+              print(
+                'Removing friend marker: $friendId - offline or stale data',
+              );
+              setState(() {
+                _friendMarkers.remove(friendId);
+              });
             }
           } else {
+            print('Removing friend marker: $friendId - no data');
             setState(() {
               _friendMarkers.remove(friendId);
             });
           }
-        } else {
+        },
+        onError: (error) {
+          print('Error listening to friend location: $error');
           setState(() {
             _friendMarkers.remove(friendId);
           });
-        }
-      }),
+        },
+      ),
     ];
   }
 
@@ -1024,7 +1078,16 @@ class _MapPageState extends State<MapPage> {
           });
         } else {
           // Cập nhật marker khi có dữ liệu vị trí mới
-          _createMyMarker();
+          final data = event.snapshot.value as Map<dynamic, dynamic>;
+          final lat = data['latitude'] as double?;
+          final lng = data['longitude'] as double?;
+
+          if (lat != null && lng != null) {
+            setState(() {
+              _currentPosition = LatLng(lat, lng);
+            });
+            _createMyMarker();
+          }
         }
       }
     });

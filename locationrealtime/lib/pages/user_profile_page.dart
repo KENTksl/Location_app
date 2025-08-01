@@ -33,6 +33,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   List<String> _availableAvatars = [];
   Timer? _backgroundTimer;
   Timer? _locationTimer;
+  StreamSubscription<Position>? _locationSubscription;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -50,6 +51,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   void dispose() {
     _locationTimer?.cancel();
     _backgroundTimer?.cancel();
+    _locationSubscription?.cancel();
     super.dispose();
   }
 
@@ -79,6 +81,12 @@ class _UserProfilePageState extends State<UserProfilePage>
           await FirebaseDatabase.instance
               .ref('users/${user.uid}/isSharingLocation')
               .set(true);
+
+          // Cập nhật vị trí ngay lập tức
+          await _updateLocationImmediately();
+
+          // Bắt đầu background service
+          _startBackgroundLocationSharing();
         } else {
           // Yêu cầu quyền vị trí
           final granted = await Geolocator.requestPermission();
@@ -92,6 +100,12 @@ class _UserProfilePageState extends State<UserProfilePage>
             await FirebaseDatabase.instance
                 .ref('users/${user.uid}/isSharingLocation')
                 .set(true);
+
+            // Cập nhật vị trí ngay lập tức
+            await _updateLocationImmediately();
+
+            // Bắt đầu background service
+            _startBackgroundLocationSharing();
           } else {
             setState(() {
               _status = 'Cần quyền vị trí để khôi phục chia sẻ';
@@ -267,6 +281,9 @@ class _UserProfilePageState extends State<UserProfilePage>
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/alwaysShareLocation')
               .set(true);
+
+          // Cập nhật vị trí ngay lập tức
+          await _updateLocationImmediately();
         }
 
         // Bắt đầu background service
@@ -319,8 +336,79 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
+  Future<void> _updateLocationImmediately() async {
+    if (user == null) return;
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      await FirebaseDatabase.instance.ref('users/${user!.uid}/location').set({
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'isOnline': true,
+        'isSharingLocation': true,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        'accuracy': position.accuracy,
+        'speed': position.speed,
+        'altitude': position.altitude,
+      });
+
+      print(
+        'Location updated immediately: ${position.latitude}, ${position.longitude}',
+      );
+    } catch (e) {
+      print('Error updating location immediately: $e');
+    }
+  }
+
   void _startBackgroundLocationSharing() {
     _backgroundTimer?.cancel();
+    _locationSubscription?.cancel();
+
+    // Bắt đầu theo dõi vị trí real-time
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5, // Cập nhật khi di chuyển 5 mét
+      timeLimit: Duration(seconds: 30),
+    );
+
+    _locationSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position position) async {
+            if (_isSharing && user != null) {
+              try {
+                await FirebaseDatabase.instance
+                    .ref('users/${user!.uid}/location')
+                    .set({
+                      'latitude': position.latitude,
+                      'longitude': position.longitude,
+                      'isOnline': true,
+                      'isSharingLocation': true,
+                      'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+                      'accuracy': position.accuracy,
+                      'speed': position.speed,
+                      'altitude': position.altitude,
+                    });
+
+                print(
+                  'Location updated: ${position.latitude}, ${position.longitude}',
+                );
+              } catch (e) {
+                print('Error updating location in real-time: $e');
+              }
+            }
+          },
+          onError: (error) {
+            print('Location stream error: $error');
+            // Fallback to periodic updates if stream fails
+            _startPeriodicLocationUpdates();
+          },
+        );
+
+    // Backup timer để đảm bảo vị trí được cập nhật ngay cả khi stream bị lỗi
     _backgroundTimer = Timer.periodic(const Duration(seconds: 30), (
       timer,
     ) async {
@@ -338,6 +426,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                 'isOnline': true,
                 'isSharingLocation': true,
                 'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+                'accuracy': position.accuracy,
+                'speed': position.speed,
+                'altitude': position.altitude,
               });
         } catch (e) {
           print('Error updating location in background: $e');
@@ -346,9 +437,41 @@ class _UserProfilePageState extends State<UserProfilePage>
     });
   }
 
+  void _startPeriodicLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (_isSharing && user != null) {
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+
+          await FirebaseDatabase.instance
+              .ref('users/${user!.uid}/location')
+              .set({
+                'latitude': position.latitude,
+                'longitude': position.longitude,
+                'isOnline': true,
+                'isSharingLocation': true,
+                'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+                'accuracy': position.accuracy,
+                'speed': position.speed,
+                'altitude': position.altitude,
+              });
+        } catch (e) {
+          print('Error updating location periodically: $e');
+        }
+      }
+    });
+  }
+
   void _stopBackgroundLocationSharing() {
     _backgroundTimer?.cancel();
     _backgroundTimer = null;
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
+    _locationTimer?.cancel();
+    _locationTimer = null;
   }
 
   Widget _buildAvatar() {
