@@ -5,7 +5,7 @@ import '../models/location_history.dart';
 import '../services/location_history_service.dart';
 
 class LocationHistoryPage extends StatefulWidget {
-  const LocationHistoryPage({Key? key}) : super(key: key);
+  const LocationHistoryPage({super.key});
 
   @override
   State<LocationHistoryPage> createState() => _LocationHistoryPageState();
@@ -17,7 +17,6 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   LocationHistoryStats? _stats;
   bool _isLoading = true;
   String _selectedFilter = 'all'; // all, week, month, year
-  LocationRoute? _selectedRoute;
 
   @override
   void initState() {
@@ -442,7 +441,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
 class RouteDetailsPage extends StatefulWidget {
   final LocationRoute route;
 
-  const RouteDetailsPage({Key? key, required this.route}) : super(key: key);
+  const RouteDetailsPage({super.key, required this.route});
 
   @override
   State<RouteDetailsPage> createState() => _RouteDetailsPageState();

@@ -12,7 +12,7 @@ import 'friend_requests_page.dart';
 import 'location_history_page.dart';
 
 class UserProfilePage extends StatefulWidget {
-  const UserProfilePage({Key? key}) : super(key: key);
+  const UserProfilePage({super.key});
 
   @override
   State<UserProfilePage> createState() => _UserProfilePageState();
@@ -829,9 +829,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            _requestCount > 0 
-                              ? 'Bạn có $_requestCount lời mời kết bạn mới'
-                              : 'Không có lời mời kết bạn nào',
+                            _requestCount > 0
+                                ? 'Bạn có $_requestCount lời mời kết bạn mới'
+                                : 'Không có lời mời kết bạn nào',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Color(0xFF64748b),
@@ -847,7 +847,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                                       const FriendRequestsPage(),
                                 ),
                               );
-                              
+
                               // Nếu có kết quả từ trang lời mời kết bạn, cập nhật stats
                               if (result == true) {
                                 _loadStats();
@@ -860,7 +860,11 @@ class _UserProfilePageState extends State<UserProfilePage>
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Text(_requestCount > 0 ? 'Xem lời mời' : 'Quản lý lời mời'),
+                            child: Text(
+                              _requestCount > 0
+                                  ? 'Xem lời mời'
+                                  : 'Quản lý lời mời',
+                            ),
                           ),
                         ],
                       ),
@@ -980,7 +984,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     final requestsRef = FirebaseDatabase.instance.ref(
       'friend_requests/${user!.uid}',
     );
-    
+
     requestsRef.onValue.listen((event) {
       if (mounted) {
         if (event.snapshot.exists) {

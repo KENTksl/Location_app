@@ -4,7 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'chat_page.dart';
 
 class ChatListPage extends StatefulWidget {
-  const ChatListPage({Key? key}) : super(key: key);
+  const ChatListPage({super.key});
 
   @override
   State<ChatListPage> createState() => _ChatListPageState();

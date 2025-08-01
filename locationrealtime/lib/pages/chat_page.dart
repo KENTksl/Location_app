@@ -10,8 +10,11 @@ import 'dart:async'; // Added for StreamSubscription
 class ChatPage extends StatefulWidget {
   final String friendId;
   final String friendEmail;
-  const ChatPage({Key? key, required this.friendId, required this.friendEmail})
-    : super(key: key);
+  const ChatPage({
+    super.key,
+    required this.friendId,
+    required this.friendEmail,
+  });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -100,14 +103,6 @@ class _ChatPageState extends State<ChatPage> {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
     await ref.set(msgs);
-
-    // // Gửi thông báo cho bạn bè
-    // await NotificationService.sendMessageNotification(
-    //   widget.friendId,
-    //   _myEmail ?? '',
-    //   text,
-    // );
-
     _controller.clear();
   }
 
@@ -141,8 +136,6 @@ class _ChatPageState extends State<ChatPage> {
               setState(() {});
             }
           });
-          // Force refresh messages
-          _refreshMessages();
         }
       });
 
@@ -176,11 +169,6 @@ class _ChatPageState extends State<ChatPage> {
         }
       });
     }
-  }
-
-  void _refreshMessages() {
-    // Force rebuild toàn bộ chat
-    setState(() {});
   }
 
   Widget _buildMessage(Map msg, bool isMe) {

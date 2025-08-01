@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class FriendSearchPage extends StatefulWidget {
-  const FriendSearchPage({Key? key}) : super(key: key);
+  const FriendSearchPage({super.key});
 
   @override
   State<FriendSearchPage> createState() => _FriendSearchPageState();

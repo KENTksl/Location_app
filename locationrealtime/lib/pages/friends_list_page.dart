@@ -4,7 +4,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
-import 'map_page.dart';
 import 'friend_search_page.dart';
 import 'user_profile_page.dart';
 import 'package:random_avatar/random_avatar.dart';
@@ -13,7 +12,7 @@ import 'dart:async'; // Import for StreamSubscription
 import 'main_navigation_page.dart'; // Added import for MainNavigationPage
 
 class FriendsListPage extends StatefulWidget {
-  const FriendsListPage({Key? key}) : super(key: key);
+  const FriendsListPage({super.key});
 
   @override
   State<FriendsListPage> createState() => _FriendsListPageState();
@@ -24,11 +23,10 @@ class _FriendsListPageState extends State<FriendsListPage> {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _requests = [];
   bool _isLoading = true;
-  int _requestCount = 0;
   Map<String, StreamSubscription> _friendAvatarSubscriptions = {};
   String _searchQuery = '';
   String? _userEmail;
-  
+
   // Location tracking variables
   Position? _currentPosition;
   Map<String, double> _friendDistances = {};
@@ -134,7 +132,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
         _friends = friendsList;
         _isLoading = false;
       });
-      
+
       // Khởi tạo khoảng cách cho tất cả bạn bè
       if (_currentPosition != null) {
         _updateAllFriendDistances();
@@ -172,7 +170,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
           _friends = friendsList;
           _isLoading = false;
         });
-        
+
         // Khởi tạo khoảng cách cho tất cả bạn bè
         if (_currentPosition != null) {
           _updateAllFriendDistances();
@@ -401,7 +399,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
     final friendsRef = FirebaseDatabase.instance.ref(
       'users/${user.uid}/friends',
     );
-    
+
     friendsRef.onValue.listen((event) {
       if (mounted) {
         // Cập nhật danh sách bạn bè khi có thay đổi
@@ -486,12 +484,14 @@ class _FriendsListPageState extends State<FriendsListPage> {
 
         if (lat != null && lng != null && isOnline && isSharing) {
           // Tính khoảng cách
-          final distance = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            lat,
-            lng,
-          ) / 1000; // Chuyển đổi sang km
+          final distance =
+              Geolocator.distanceBetween(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+                lat,
+                lng,
+              ) /
+              1000; // Chuyển đổi sang km
 
           setState(() {
             _friendDistances[friendId] = distance;
@@ -740,18 +740,25 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                             Icon(
                                               Icons.location_on_rounded,
                                               size: 14,
-                                              color: _friendDistances[friend['id']] != null
+                                              color:
+                                                  _friendDistances[friend['id']] !=
+                                                      null
                                                   ? const Color(0xFF10b981)
                                                   : Colors.grey.shade400,
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
-                                              _friendDistances[friend['id']] != null
-                                                  ? _formatDistance(_friendDistances[friend['id']])
+                                              _friendDistances[friend['id']] !=
+                                                      null
+                                                  ? _formatDistance(
+                                                      _friendDistances[friend['id']],
+                                                    )
                                                   : 'Không chia sẻ vị trí',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: _friendDistances[friend['id']] != null
+                                                color:
+                                                    _friendDistances[friend['id']] !=
+                                                        null
                                                     ? const Color(0xFF10b981)
                                                     : Colors.grey.shade500,
                                                 fontWeight: FontWeight.w500,
@@ -814,11 +821,14 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                             Navigator.pushReplacement(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => MainNavigationPage(
-                                                  focusFriendId: friend['id'],
-                                                  focusFriendEmail: friend['email'],
-                                                  selectedTab: 0,
-                                                ),
+                                                builder: (context) =>
+                                                    MainNavigationPage(
+                                                      focusFriendId:
+                                                          friend['id'],
+                                                      focusFriendEmail:
+                                                          friend['email'],
+                                                      selectedTab: 0,
+                                                    ),
                                               ),
                                             );
                                           },

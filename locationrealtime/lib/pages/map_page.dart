@@ -17,8 +17,7 @@ class MapPage extends StatefulWidget {
   final String? focusFriendId;
   final String? focusFriendEmail;
 
-  const MapPage({Key? key, this.focusFriendId, this.focusFriendEmail})
-    : super(key: key);
+  const MapPage({super.key, this.focusFriendId, this.focusFriendEmail});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -38,7 +37,7 @@ class _MapPageState extends State<MapPage> {
   String? _myAvatarUrl;
   Map<String, String> _friendEmails = {};
   Map<String, String> _friendAvatars = {};
-  bool _is3DEnabled = false;
+
   Map<String, Marker> _friendMarkers = {};
 
   // Location History variables
@@ -601,28 +600,6 @@ class _MapPageState extends State<MapPage> {
         _stopRouteTimer();
       }
     });
-  }
-
-  void _toggle3DView() {
-    setState(() {
-      _is3DEnabled = !_is3DEnabled;
-    });
-
-    if (_is3DEnabled) {
-      // Tạo hiệu ứng 3D bằng cách zoom in và thay đổi bearing
-      mapController?.animateCamera(CameraUpdate.zoomIn());
-    } else {
-      // Reset về view bình thường
-      if (_currentPosition != null) {
-        mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(_currentPosition!, 15),
-        );
-      } else {
-        mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(_defaultCenter, 15),
-        );
-      }
-    }
   }
 
   @override
