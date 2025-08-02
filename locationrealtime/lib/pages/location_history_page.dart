@@ -320,6 +320,12 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   }
 
   Widget _buildRouteCard(LocationRoute route) {
+    // Tạo tên route đúng
+    String routeName = route.name;
+    if (routeName == 'Lộ trình đang ghi' || routeName == 'Temp') {
+      routeName = _service.generateRouteName(route);
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
@@ -333,69 +339,101 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(20),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: const Color(0xFF667eea).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: const Icon(Icons.route, color: Color(0xFF667eea)),
-        ),
-        title: Text(
-          route.name,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
           children: [
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  DateFormat('dd/MM/yyyy HH:mm').format(route.startTime),
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
+            // Icon container
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: const Color(0xFF667eea).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: const Icon(Icons.route, color: Color(0xFF667eea)),
             ),
-            const SizedBox(height: 4),
-            Row(
+            const SizedBox(width: 15),
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    routeName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  // Time
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          DateFormat(
+                            'dd/MM/yyyy HH:mm',
+                          ).format(route.startTime),
+                          style: TextStyle(color: Colors.grey[600]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Distance and Speed
+                  Row(
+                    children: [
+                      Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${route.totalDistance.toStringAsFixed(2)} km',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(width: 16),
+                      Icon(Icons.speed, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${route.averageSpeed.toStringAsFixed(1)} km/h',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Actions
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${route.totalDistance.toStringAsFixed(2)} km',
-                  style: TextStyle(color: Colors.grey[600]),
+                IconButton(
+                  icon: const Icon(Icons.visibility),
+                  onPressed: () => _showRouteDetails(route),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
-                const SizedBox(width: 16),
-                Icon(Icons.speed, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${route.averageSpeed.toStringAsFixed(1)} km/h',
-                  style: TextStyle(color: Colors.grey[600]),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _deleteRoute(route),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.visibility),
-              onPressed: () => _showRouteDetails(route),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteRoute(route),
-            ),
-          ],
-        ),
-        onTap: () => _showRouteDetails(route),
       ),
     );
   }
