@@ -128,6 +128,7 @@ class _MapPageState extends State<MapPage> {
 
     if (friendsSnap.exists) {
       final friendsData = friendsSnap.value as Map<dynamic, dynamic>;
+      print('Loading data for ${friendsData.length} friends');
 
       for (final friendId in friendsData.keys) {
         final friendRef = FirebaseDatabase.instance.ref('users/$friendId');
@@ -137,8 +138,25 @@ class _MapPageState extends State<MapPage> {
           final friendData = friendSnap.value as Map<dynamic, dynamic>;
           _friendEmails[friendId] = friendData['email']?.toString() ?? '';
           _friendAvatars[friendId] = friendData['avatarUrl']?.toString() ?? '';
+
+          // Kiểm tra trạng thái chia sẻ vị trí của bạn bè
+          final locationRef = FirebaseDatabase.instance.ref(
+            'users/$friendId/location',
+          );
+          final locationSnap = await locationRef.get();
+
+          if (locationSnap.exists) {
+            final locationData = locationSnap.value as Map<dynamic, dynamic>;
+            final isSharing =
+                locationData['isSharingLocation'] as bool? ?? false;
+            print('Friend $friendId sharing location: $isSharing');
+          } else {
+            print('Friend $friendId has no location data');
+          }
         }
       }
+    } else {
+      print('No friends data found');
     }
   }
 
@@ -242,9 +260,13 @@ class _MapPageState extends State<MapPage> {
           .get();
       if (friendsSnap.exists && friendsSnap.value is Map) {
         final friends = friendsSnap.value as Map;
+        print('Found ${friends.length} friends in database');
         for (String friendId in friends.keys) {
+          print('Setting up listener for friend: $friendId');
           _listenToFriendLocation(friendId);
         }
+      } else {
+        print('No friends found in database');
       }
     } catch (e) {
       print('Lỗi listen friends locations: $e');
@@ -257,11 +279,13 @@ class _MapPageState extends State<MapPage> {
     friendsRef.onValue.listen((event) {
       if (event.snapshot.exists && event.snapshot.value is Map) {
         final friends = event.snapshot.value as Map;
+        print('Friends list updated: ${friends.length} friends');
 
         // Hủy các stream cũ không còn trong danh sách bạn bè
         final currentFriendIds = friends.keys.cast<String>();
         _locationStreams.keys.toList().forEach((friendId) {
           if (!currentFriendIds.contains(friendId)) {
+            print('Removing listener for friend: $friendId');
             _locationStreams[friendId]?.forEach((sub) => sub.cancel());
             _locationStreams.remove(friendId);
             setState(() {
@@ -273,9 +297,12 @@ class _MapPageState extends State<MapPage> {
         // Thêm listener cho bạn bè mới
         for (String friendId in currentFriendIds) {
           if (!_locationStreams.containsKey(friendId)) {
+            print('Adding listener for friend: $friendId');
             _listenToFriendLocation(friendId);
           }
         }
+      } else {
+        print('Friends list is empty or invalid');
       }
     });
   }
@@ -296,6 +323,7 @@ class _MapPageState extends State<MapPage> {
     _locationStreams[friendId] = [
       stream.listen(
         (event) async {
+          print('Received location data for friend: $friendId');
           if (event.snapshot.exists) {
             final data = event.snapshot.value as Map<dynamic, dynamic>;
             final lat = data['latitude'] as double?;
@@ -304,17 +332,17 @@ class _MapPageState extends State<MapPage> {
             final isSharing = data['isSharingLocation'] as bool? ?? false;
             final lastUpdated = data['lastUpdated'] as int?;
 
-            // Kiểm tra xem dữ liệu có mới không (trong vòng 5 phút)
+            print(
+              'Friend $friendId data: lat=$lat, lng=$lng, isOnline=$isOnline, isSharing=$isSharing',
+            );
+
+            // Kiểm tra xem dữ liệu có mới không (trong vòng 30 phút)
             final now = DateTime.now().millisecondsSinceEpoch;
             final isDataFresh =
                 lastUpdated != null &&
-                (now - lastUpdated) < 5 * 60 * 1000; // 5 phút
+                (now - lastUpdated) < 30 * 60 * 1000; // 30 phút
 
-            if (lat != null &&
-                lng != null &&
-                isOnline &&
-                isSharing &&
-                isDataFresh) {
+            if (lat != null && lng != null && isOnline && isSharing) {
               final position = LatLng(lat, lng);
               final friendEmail = _friendEmails[friendId] ?? '';
               final avatarUrl = _friendAvatars[friendId];
@@ -339,13 +367,17 @@ class _MapPageState extends State<MapPage> {
                 );
               });
 
+              print(
+                'Added marker for friend: $friendId, total markers: ${_friendMarkers.length}',
+              );
+
               // Vẽ đường đi nếu có bạn bè được chọn
               if (_selectedFriendId == friendId) {
                 _drawRouteToFriend(friendId, position);
               }
             } else {
               print(
-                'Removing friend marker: $friendId - offline or stale data',
+                'Removing friend marker: $friendId - offline or stale data (lat=$lat, lng=$lng, isOnline=$isOnline, isSharing=$isSharing)',
               );
               setState(() {
                 _friendMarkers.remove(friendId);
@@ -853,6 +885,41 @@ class _MapPageState extends State<MapPage> {
                 ),
               ),
             ),
+
+          // Debug Info Card
+          Positioned(
+            bottom: 20,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Friends: ${_friendMarkers.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Streams: ${_locationStreams.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  Text(
+                    'My markers: ${_markers.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
           // Recording Route Card
           if (_isRecordingRoute)
