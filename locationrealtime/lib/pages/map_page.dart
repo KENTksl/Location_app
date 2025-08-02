@@ -47,7 +47,7 @@ class _MapPageState extends State<MapPage> {
   LocationRoute? _currentRoute;
   bool _isRecordingRoute = false;
   Timer? _routeRecordingTimer;
-  StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<Position>? _routeLocationSubscription;
   bool _hasLocationPermission = false;
 
   @override
@@ -246,7 +246,7 @@ class _MapPageState extends State<MapPage> {
     });
     _routeTimer?.cancel();
     _routeRecordingTimer?.cancel();
-    _locationSubscription?.cancel();
+    _routeLocationSubscription?.cancel();
     super.dispose();
   }
 
@@ -916,6 +916,14 @@ class _MapPageState extends State<MapPage> {
                     'My markers: ${_markers.length}',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
+                  Text(
+                    'Recording: $_isRecordingRoute',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                  Text(
+                    'Route points: ${_currentRoutePoints.length}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
                 ],
               ),
             ),
@@ -1203,14 +1211,20 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _startRouteRecording() async {
+    print('Starting route recording...');
+
     // Kiểm tra permission trước
     await _checkLocationPermission();
-    if (!_hasLocationPermission) return;
+    if (!_hasLocationPermission) {
+      print('Location permission denied');
+      return;
+    }
 
     // Lấy vị trí hiện tại
     final currentPoint = await _locationHistoryService
         .getCurrentLocationPoint();
     if (currentPoint == null) {
+      print('Could not get current location point');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Không thể lấy vị trí hiện tại'),
@@ -1220,6 +1234,10 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
+    print(
+      'Current location point: ${currentPoint.latitude}, ${currentPoint.longitude}',
+    );
+
     setState(() {
       _isRecordingRoute = true;
       _currentRoutePoints = [currentPoint];
@@ -1227,6 +1245,8 @@ class _MapPageState extends State<MapPage> {
 
     // Bắt đầu theo dõi vị trí real-time
     _startLocationTracking();
+
+    print('Route recording started successfully');
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1237,7 +1257,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _stopRouteRecording() async {
-    _locationSubscription?.cancel();
+    _routeLocationSubscription?.cancel();
 
     // Kiểm tra route có hợp lệ không
     if (!_locationHistoryService.isValidRoute(_currentRoutePoints)) {
@@ -1292,7 +1312,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _startLocationTracking() {
-    _locationSubscription?.cancel();
+    _routeLocationSubscription?.cancel();
 
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -1300,7 +1320,7 @@ class _MapPageState extends State<MapPage> {
       timeLimit: Duration(seconds: 30),
     );
 
-    _locationSubscription =
+    _routeLocationSubscription =
         Geolocator.getPositionStream(locationSettings: locationSettings).listen(
           (Position position) {
             _onLocationUpdate(position);
@@ -1329,8 +1349,14 @@ class _MapPageState extends State<MapPage> {
       altitude: position.altitude,
     );
 
+    print('Location update: ${position.latitude}, ${position.longitude}');
+
     // Kiểm tra xem có nên thêm điểm mới không
     if (_locationHistoryService.shouldAddPoint(newPoint, _currentRoutePoints)) {
+      print(
+        'Adding new point to route. Total points: ${_currentRoutePoints.length + 1}',
+      );
+
       setState(() {
         _currentRoutePoints.add(newPoint);
       });
@@ -1356,6 +1382,8 @@ class _MapPageState extends State<MapPage> {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
       await _createMyMarker();
+    } else {
+      print('Skipping point - too close or too soon');
     }
   }
 
