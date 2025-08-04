@@ -322,7 +322,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   Widget _buildRouteCard(LocationRoute route) {
     // Tạo tên route đúng
     String routeName = route.name;
-    if (routeName == 'Lộ trình đang ghi' || routeName == 'Temp') {
+    if (routeName == 'Lộ trình đã ghi' || routeName == 'Temp') {
       routeName = _service.generateRouteName(route);
     }
 
