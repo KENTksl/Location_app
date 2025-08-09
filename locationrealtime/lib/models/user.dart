@@ -23,7 +23,13 @@ class User {
       email: json['email'] ?? '',
       avatarUrl: json['avatarUrl'],
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? (() {
+              try {
+                return DateTime.parse(json['createdAt']);
+              } catch (e) {
+                return null;
+              }
+            })()
           : null,
       isSharingLocation: json['isSharingLocation'],
       alwaysShareLocation: json['alwaysShareLocation'],

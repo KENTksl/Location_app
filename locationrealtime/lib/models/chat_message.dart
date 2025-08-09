@@ -15,7 +15,11 @@ class ChatMessage {
     return ChatMessage(
       from: json['from'] ?? '',
       text: json['text'] ?? '',
-      timestamp: json['timestamp'] ?? 0,
+      timestamp: json['timestamp'] != null 
+          ? (json['timestamp'] is double 
+              ? (json['timestamp'] as double).toInt() 
+              : json['timestamp'] as int)
+          : 0,
       chatId: json['chatId'],
     );
   }

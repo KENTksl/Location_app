@@ -2,10 +2,22 @@ import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/user.dart' as app_user;
+import 'geolocator_wrapper.dart';
 
 class UserService {
-  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final auth.FirebaseAuth _auth;
+  final FirebaseDatabase _database;
+
+  final GeolocatorWrapper _geolocator;
+
+  // Constructor with dependency injection for better testability
+  UserService({
+    auth.FirebaseAuth? firebaseAuth,
+    FirebaseDatabase? database,
+    GeolocatorWrapper? geolocator,
+  }) : _auth = firebaseAuth ?? auth.FirebaseAuth.instance,
+       _database = database ?? FirebaseDatabase.instance,
+       _geolocator = geolocator ?? GeolocatorWrapperImpl();
 
   // Lấy thông tin user hiện tại
   app_user.User? getCurrentUser() {
@@ -100,7 +112,7 @@ class UserService {
   // Kiểm tra quyền vị trí
   Future<bool> checkLocationPermission() async {
     try {
-      final permission = await Geolocator.checkPermission();
+      final permission = await _geolocator.checkPermission();
       return permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always;
     } catch (e) {
@@ -112,7 +124,7 @@ class UserService {
   // Yêu cầu quyền vị trí
   Future<bool> requestLocationPermission() async {
     try {
-      final permission = await Geolocator.requestPermission();
+      final permission = await _geolocator.requestPermission();
       return permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always;
     } catch (e) {
@@ -124,7 +136,7 @@ class UserService {
   // Lấy vị trí hiện tại
   Future<Map<String, double>?> getCurrentLocation() async {
     try {
-      final position = await Geolocator.getCurrentPosition(
+      final position = await _geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       return {'latitude': position.latitude, 'longitude': position.longitude};

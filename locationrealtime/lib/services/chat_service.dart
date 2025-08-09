@@ -3,8 +3,15 @@ import 'package:firebase_database/firebase_database.dart';
 import '../models/chat_message.dart';
 
 class ChatService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final FirebaseAuth _auth;
+  final FirebaseDatabase _database;
+
+  // Constructor with dependency injection for better testability
+  ChatService({
+    FirebaseAuth? auth,
+    FirebaseDatabase? database,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _database = database ?? FirebaseDatabase.instance;
 
   // Tạo chat ID
   String _getChatId(String uid1, String uid2) {

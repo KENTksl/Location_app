@@ -3,10 +3,21 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/friend.dart';
 import '../models/friend_request.dart';
+import 'geolocator_wrapper.dart';
 
 class FriendService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final FirebaseAuth _auth;
+  final FirebaseDatabase _database;
+  final GeolocatorWrapper _geolocator;
+
+  // Constructor with dependency injection for better testability
+  FriendService({
+    FirebaseAuth? auth,
+    FirebaseDatabase? database,
+    GeolocatorWrapper? geolocator,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _database = database ?? FirebaseDatabase.instance,
+       _geolocator = geolocator ?? GeolocatorWrapperImpl();
 
   // Lấy danh sách bạn bè
   Future<List<Friend>> getFriends() async {
@@ -160,7 +171,7 @@ class FriendService {
 
   // Tính khoảng cách giữa hai điểm
   double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
-    return Geolocator.distanceBetween(lat1, lng1, lat2, lng2) /
+    return _geolocator.distanceBetween(lat1, lng1, lat2, lng2) /
         1000; // Convert to km
   }
 
