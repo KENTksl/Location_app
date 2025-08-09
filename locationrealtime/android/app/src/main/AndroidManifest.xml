@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
-        android:label="locationrealtime"
+        android:label="Lyn"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <meta-data

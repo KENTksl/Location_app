@@ -116,18 +116,14 @@ class _ChatPageState extends State<ChatPage> {
       );
       final myAvatarSnap = await myAvatarRef.get();
       if (myAvatarSnap.exists) {
-        print('Chat: Initial my avatar loaded: ${myAvatarSnap.value}');
         setState(() {
           _myAvatarUrl = myAvatarSnap.value as String?;
         });
-      } else {
-        print('Chat: No initial my avatar found');
       }
 
       // Lắng nghe thay đổi avatar của tôi
       _myAvatarSubscription = myAvatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
-          print('Chat: My avatar updated to: ${event.snapshot.value}');
           setState(() {
             _myAvatarUrl = event.snapshot.value as String?;
           });
@@ -146,18 +142,14 @@ class _ChatPageState extends State<ChatPage> {
       );
       final friendAvatarSnap = await friendAvatarRef.get();
       if (friendAvatarSnap.exists) {
-        print('Chat: Initial friend avatar loaded: ${friendAvatarSnap.value}');
         setState(() {
           _friendAvatarUrl = friendAvatarSnap.value as String?;
         });
-      } else {
-        print('Chat: No initial friend avatar found');
       }
 
       // Lắng nghe thay đổi avatar của bạn bè
       _friendAvatarSubscription = friendAvatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
-          print('Chat: Friend avatar updated to: ${event.snapshot.value}');
           setState(() {
             _friendAvatarUrl = event.snapshot.value as String?;
           });
@@ -181,13 +173,6 @@ class _ChatPageState extends State<ChatPage> {
 
     final avatarUrl = isMe ? _myAvatarUrl : _friendAvatarUrl;
     final email = isMe ? (_myEmail ?? '') : widget.friendEmail;
-
-    // Debug: In ra thông tin avatar
-    // if (isMe) {
-    //   print('Chat: Building message for me with avatar: $avatarUrl');
-    // } else {
-    //   print('Chat: Building message for friend with avatar: $avatarUrl');
-    // }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

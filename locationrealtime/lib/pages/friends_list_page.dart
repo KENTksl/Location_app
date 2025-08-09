@@ -23,14 +23,14 @@ class _FriendsListPageState extends State<FriendsListPage> {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _requests = [];
   bool _isLoading = true;
-  Map<String, StreamSubscription> _friendAvatarSubscriptions = {};
+  final Map<String, StreamSubscription> _friendAvatarSubscriptions = {};
   String _searchQuery = '';
   String? _userEmail;
 
   // Location tracking variables
   Position? _currentPosition;
-  Map<String, double> _friendDistances = {};
-  Map<String, StreamSubscription> _friendLocationSubscriptions = {};
+  final Map<String, double> _friendDistances = {};
+  final Map<String, StreamSubscription> _friendLocationSubscriptions = {};
   Timer? _distanceUpdateTimer;
 
   @override
@@ -47,12 +47,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
   @override
   void dispose() {
     // Hủy tất cả subscriptions
-    _friendAvatarSubscriptions.values.forEach((subscription) {
+    for (var subscription in _friendAvatarSubscriptions.values) {
       subscription.cancel();
-    });
-    _friendLocationSubscriptions.values.forEach((subscription) {
+    }
+    for (var subscription in _friendLocationSubscriptions.values) {
       subscription.cancel();
-    });
+    }
     _distanceUpdateTimer?.cancel();
     super.dispose();
   }
@@ -70,18 +70,14 @@ class _FriendsListPageState extends State<FriendsListPage> {
       );
       final avatarSnap = await avatarRef.get();
       if (avatarSnap.exists) {
-        print('Friends: Initial user avatar loaded: ${avatarSnap.value}');
         setState(() {
           _userAvatarUrl = avatarSnap.value as String?;
         });
-      } else {
-        print('Friends: No initial user avatar found');
       }
 
       // Lắng nghe thay đổi avatar
       avatarRef.onValue.listen((event) {
         if (event.snapshot.exists && mounted) {
-          print('Friends: User avatar updated to: ${event.snapshot.value}');
           setState(() {
             _userAvatarUrl = event.snapshot.value as String?;
           });
@@ -95,9 +91,9 @@ class _FriendsListPageState extends State<FriendsListPage> {
     if (user == null) return;
 
     // Hủy tất cả subscriptions cũ
-    _friendAvatarSubscriptions.values.forEach((subscription) {
+    for (var subscription in _friendAvatarSubscriptions.values) {
       subscription.cancel();
-    });
+    }
     _friendAvatarSubscriptions.clear();
 
     // Thử load theo cấu trúc cũ trước
@@ -412,7 +408,6 @@ class _FriendsListPageState extends State<FriendsListPage> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        print('Location services are disabled.');
         return;
       }
 
@@ -420,13 +415,11 @@ class _FriendsListPageState extends State<FriendsListPage> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          print('Location permissions are denied');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        print('Location permissions are permanently denied');
         return;
       }
 

@@ -4,7 +4,6 @@ import 'package:firebase_database/firebase_database.dart';
 import '../theme.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
-import 'map_page.dart';
 import 'main_navigation_page.dart';
 
 class LoginPage extends StatefulWidget {

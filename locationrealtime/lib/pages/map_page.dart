@@ -28,17 +28,17 @@ class _MapPageState extends State<MapPage> {
   Set<Marker> _markers = {};
   LatLng? _currentPosition;
   final LatLng _defaultCenter = const LatLng(10.8231, 106.6297); // HCMC
-  Map<String, List<StreamSubscription>> _locationStreams = {};
+  final Map<String, List<StreamSubscription>> _locationStreams = {};
   bool _isLoading = true;
   Polyline? _routePolyline;
   String? _routeDistance;
   Timer? _routeTimer;
   String? _selectedFriendId;
   String? _myAvatarUrl;
-  Map<String, String> _friendEmails = {};
-  Map<String, String> _friendAvatars = {};
+  final Map<String, String> _friendEmails = {};
+  final Map<String, String> _friendAvatars = {};
 
-  Map<String, Marker> _friendMarkers = {};
+  final Map<String, Marker> _friendMarkers = {};
 
   // Location History variables
   final LocationHistoryService _locationHistoryService =
@@ -86,7 +86,6 @@ class _MapPageState extends State<MapPage> {
         // Lắng nghe thay đổi avatar
         avatarRef.onValue.listen((event) {
           if (event.snapshot.exists && mounted) {
-            print('Map: My avatar updated to: ${event.snapshot.value}');
             setState(() {
               _myAvatarUrl = event.snapshot.value as String?;
             });
@@ -128,7 +127,6 @@ class _MapPageState extends State<MapPage> {
 
     if (friendsSnap.exists) {
       final friendsData = friendsSnap.value as Map<dynamic, dynamic>;
-      print('Loading data for ${friendsData.length} friends');
 
       for (final friendId in friendsData.keys) {
         final friendRef = FirebaseDatabase.instance.ref('users/$friendId');
@@ -149,15 +147,10 @@ class _MapPageState extends State<MapPage> {
             final locationData = locationSnap.value as Map<dynamic, dynamic>;
             final isSharing =
                 locationData['isSharingLocation'] as bool? ?? false;
-            print('Friend $friendId sharing location: $isSharing');
-          } else {
-            print('Friend $friendId has no location data');
           }
         }
       }
-    } else {
-      print('No friends data found');
-    }
+    } else {}
   }
 
   Widget _buildAvatarWidget(String? avatarUrl, String email) {
@@ -241,9 +234,11 @@ class _MapPageState extends State<MapPage> {
   @override
   void dispose() {
     // Hủy tất cả streams
-    _locationStreams.values.forEach((streams) {
-      streams.forEach((stream) => stream.cancel());
-    });
+    for (var streams in _locationStreams.values) {
+      for (var stream in streams) {
+        stream.cancel();
+      }
+    }
     _routeTimer?.cancel();
     _routeRecordingTimer?.cancel();
     _routeLocationSubscription?.cancel();
@@ -260,13 +255,10 @@ class _MapPageState extends State<MapPage> {
           .get();
       if (friendsSnap.exists && friendsSnap.value is Map) {
         final friends = friendsSnap.value as Map;
-        print('Found ${friends.length} friends in database');
+
         for (String friendId in friends.keys) {
-          print('Setting up listener for friend: $friendId');
           _listenToFriendLocation(friendId);
         }
-      } else {
-        print('No friends found in database');
       }
     } catch (e) {
       print('Lỗi listen friends locations: $e');
@@ -279,13 +271,11 @@ class _MapPageState extends State<MapPage> {
     friendsRef.onValue.listen((event) {
       if (event.snapshot.exists && event.snapshot.value is Map) {
         final friends = event.snapshot.value as Map;
-        print('Friends list updated: ${friends.length} friends');
 
         // Hủy các stream cũ không còn trong danh sách bạn bè
         final currentFriendIds = friends.keys.cast<String>();
         _locationStreams.keys.toList().forEach((friendId) {
           if (!currentFriendIds.contains(friendId)) {
-            print('Removing listener for friend: $friendId');
             _locationStreams[friendId]?.forEach((sub) => sub.cancel());
             _locationStreams.remove(friendId);
             setState(() {
@@ -297,12 +287,9 @@ class _MapPageState extends State<MapPage> {
         // Thêm listener cho bạn bè mới
         for (String friendId in currentFriendIds) {
           if (!_locationStreams.containsKey(friendId)) {
-            print('Adding listener for friend: $friendId');
             _listenToFriendLocation(friendId);
           }
         }
-      } else {
-        print('Friends list is empty or invalid');
       }
     });
   }
@@ -323,7 +310,6 @@ class _MapPageState extends State<MapPage> {
     _locationStreams[friendId] = [
       stream.listen(
         (event) async {
-          print('Received location data for friend: $friendId');
           if (event.snapshot.exists) {
             final data = event.snapshot.value as Map<dynamic, dynamic>;
             final lat = data['latitude'] as double?;
@@ -346,8 +332,6 @@ class _MapPageState extends State<MapPage> {
               final position = LatLng(lat, lng);
               final friendEmail = _friendEmails[friendId] ?? '';
               final avatarUrl = _friendAvatars[friendId];
-
-              print('Friend location updated: $friendId at $lat, $lng');
 
               // Tạo custom marker với avatar
               final markerIcon = await _createCustomMarkerFromAvatar(
@@ -384,7 +368,6 @@ class _MapPageState extends State<MapPage> {
               });
             }
           } else {
-            print('Removing friend marker: $friendId - no data');
             setState(() {
               _friendMarkers.remove(friendId);
             });
@@ -652,7 +635,7 @@ class _MapPageState extends State<MapPage> {
       final isOnline = data['isOnline'] as bool? ?? false;
       final isSharing = data['isSharingLocation'] as bool? ?? false;
 
-      if (lat != null && lng != null && isOnline && isSharing) {
+      if (lng != null && isOnline && isSharing) {
         final LatLng friendPos = LatLng(lat, lng);
 
         // Focus camera vào vị trí bạn bè ngay lập tức
@@ -885,49 +868,6 @@ class _MapPageState extends State<MapPage> {
                 ),
               ),
             ),
-
-          // Debug Info Card
-          Positioned(
-            bottom: 20,
-            right: 16,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Friends: ${_friendMarkers.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Streams: ${_locationStreams.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                  Text(
-                    'My markers: ${_markers.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                  Text(
-                    'Recording: $_isRecordingRoute',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                  Text(
-                    'Route points: ${_currentRoutePoints.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
 
           // Recording Route Card
           if (_isRecordingRoute)
@@ -1211,12 +1151,9 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _startRouteRecording() async {
-    print('Starting route recording...');
-
     // Kiểm tra permission trước
     await _checkLocationPermission();
     if (!_hasLocationPermission) {
-      print('Location permission denied');
       return;
     }
 
@@ -1224,7 +1161,6 @@ class _MapPageState extends State<MapPage> {
     final currentPoint = await _locationHistoryService
         .getCurrentLocationPoint();
     if (currentPoint == null) {
-      print('Could not get current location point');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Không thể lấy vị trí hiện tại'),
@@ -1245,8 +1181,6 @@ class _MapPageState extends State<MapPage> {
 
     // Bắt đầu theo dõi vị trí real-time
     _startLocationTracking();
-
-    print('Route recording started successfully');
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1349,8 +1283,6 @@ class _MapPageState extends State<MapPage> {
       altitude: position.altitude,
     );
 
-    print('Location update: ${position.latitude}, ${position.longitude}');
-
     // Kiểm tra xem có nên thêm điểm mới không
     if (_locationHistoryService.shouldAddPoint(newPoint, _currentRoutePoints)) {
       print(
@@ -1382,9 +1314,7 @@ class _MapPageState extends State<MapPage> {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
       await _createMyMarker();
-    } else {
-      print('Skipping point - too close or too soon');
-    }
+    } else {}
   }
 
   void _showLocationHistory() {

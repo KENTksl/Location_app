@@ -7,7 +7,12 @@ class MainNavigationPage extends StatefulWidget {
   final String? focusFriendId;
   final String? focusFriendEmail;
   final int? selectedTab;
-  const MainNavigationPage({Key? key, this.focusFriendId, this.focusFriendEmail, this.selectedTab}) : super(key: key);
+  const MainNavigationPage({
+    super.key,
+    this.focusFriendId,
+    this.focusFriendEmail,
+    this.selectedTab,
+  });
 
   @override
   State<MainNavigationPage> createState() => _MainNavigationPageState();
@@ -65,7 +70,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _pages = [
+    final List<Widget> pages = [
       MapPage(
         focusFriendId: widget.focusFriendId,
         focusFriendEmail: widget.focusFriendEmail,
@@ -77,7 +82,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: IndexedStack(index: _selectedIndex, children: _pages),
+        child: IndexedStack(index: _selectedIndex, children: pages),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

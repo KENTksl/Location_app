@@ -5,6 +5,7 @@ import 'pages/login_page.dart';
 import 'pages/main_navigation_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Location Real-time',
+      title: 'Lyn',
       debugShowCheckedModeBanner: false,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
@@ -57,10 +58,10 @@ class _MyAppState extends State<MyApp> {
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF667eea),
+        seedColor: AppTheme.primaryColor,
         brightness: Brightness.light,
       ),
-      scaffoldBackgroundColor: const Color(0xFFf8fafc),
+      scaffoldBackgroundColor: AppTheme.backgroundColor,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -74,36 +75,38 @@ class _MyAppState extends State<MyApp> {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        color: Colors.white,
-        shadowColor: const Color(0xFF667eea).withValues(alpha: 0.1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
+        ),
+        color: AppTheme.surfaceColor,
+        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.1),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           ),
-          backgroundColor: const Color(0xFF667eea),
+          backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppTheme.surfaceColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
@@ -112,7 +115,7 @@ class _MyAppState extends State<MyApp> {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFF667eea),
+        selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: Color(0xFF94a3b8),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
@@ -125,7 +128,7 @@ class _MyAppState extends State<MyApp> {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF667eea),
+        seedColor: AppTheme.primaryColor,
         brightness: Brightness.dark,
       ),
       scaffoldBackgroundColor: const Color(0xFF0f172a),
@@ -142,18 +145,20 @@ class _MyAppState extends State<MyApp> {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
+        ),
         color: const Color(0xFF1e293b),
-        shadowColor: const Color(0xFF667eea).withValues(alpha: 0.1),
+        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.1),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           ),
-          backgroundColor: const Color(0xFF667eea),
+          backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
@@ -162,16 +167,16 @@ class _MyAppState extends State<MyApp> {
         filled: true,
         fillColor: const Color(0xFF1e293b),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
           borderSide: const BorderSide(color: Color(0xFF334155)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF667eea), width: 2),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
@@ -180,7 +185,7 @@ class _MyAppState extends State<MyApp> {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Color(0xFF1e293b),
-        selectedItemColor: Color(0xFF667eea),
+        selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: Color(0xFF64748b),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
