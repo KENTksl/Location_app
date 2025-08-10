@@ -3,8 +3,14 @@ import 'package:firebase_database/firebase_database.dart';
 import '../models/user.dart' as app_user;
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final FirebaseAuth _auth;
+  final FirebaseDatabase _database;
+
+  AuthService({
+    FirebaseAuth? auth,
+    FirebaseDatabase? database,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+        _database = database ?? FirebaseDatabase.instance;
 
   // Đăng ký
   Future<app_user.User?> signUp(String email, String password) async {

@@ -5,14 +5,16 @@ import '../models/location_history.dart';
 import '../services/location_history_service.dart';
 
 class LocationHistoryPage extends StatefulWidget {
-  const LocationHistoryPage({super.key});
+  final LocationHistoryService? service;
+  
+  const LocationHistoryPage({super.key, this.service});
 
   @override
   State<LocationHistoryPage> createState() => _LocationHistoryPageState();
 }
 
 class _LocationHistoryPageState extends State<LocationHistoryPage> {
-  final LocationHistoryService _service = LocationHistoryService();
+  late final LocationHistoryService _service;
   List<LocationRoute> _routes = [];
   LocationHistoryStats? _stats;
   bool _isLoading = true;
@@ -21,6 +23,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   @override
   void initState() {
     super.initState();
+    _service = widget.service ?? LocationHistoryService();
     _loadData();
   }
 

@@ -16,8 +16,14 @@ class LocationHistoryService {
     seconds: 3,
   ); // 3 seconds minimum
 
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseDatabase _database;
+  final FirebaseAuth _auth;
+
+  LocationHistoryService({
+    FirebaseAuth? auth,
+    FirebaseDatabase? database,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+        _database = database ?? FirebaseDatabase.instance;
 
   // Lưu route vào local storage
   Future<void> saveRouteLocally(LocationRoute route) async {
