@@ -117,126 +117,149 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
                     const SizedBox(height: AppTheme.spacingS),
                 itemBuilder: (context, index) {
                   final req = _requests[index];
-                  return AppTheme.card(
+                  return Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingM,
+                      vertical: AppTheme.spacingS,
+                    ),
                     padding: const EdgeInsets.all(AppTheme.spacingM),
-                    borderRadius: AppTheme.borderRadiusL,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacingL,
-                        vertical: AppTheme.spacingM,
-                      ),
-                      leading: CircleAvatar(
-                        radius: 28,
-                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
-                        child: Text(
-                          (req['email'] != null && req['email']!.isNotEmpty)
-                              ? req['email']![0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            fontSize: 24,
-                            color: AppTheme.warningColor,
-                            fontWeight: FontWeight.bold,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppTheme.borderRadiusL),
+                      boxShadow: AppTheme.cardShadow,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 35,
+                            backgroundColor: AppTheme.warningColor.withValues(alpha: 0.1),
+                            child: Text(
+                              (req['email'] != null && req['email']!.isNotEmpty)
+                                  ? req['email']![0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: 28,
+                                color: AppTheme.warningColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      title: Text(
-                        req['email'] ?? req['userId']!,
-                        style: AppTheme.bodyStyle.copyWith(
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: AppTheme.spacingM),
+                        Text(
+                          req['email'] ?? '',
+                          style: AppTheme.bodyStyle.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      subtitle: Text(
-                        'ID: ${req['userId']}',
-                        style: AppTheme.captionStyle,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Accept button
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.accentGradient,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.borderRadiusS,
-                              ),
-                              boxShadow: AppTheme.buttonShadow,
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
+                        const SizedBox(height: AppTheme.spacingL),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Accept button
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXS),
+                              decoration: BoxDecoration(
+                                gradient: AppTheme.accentGradient,
                                 borderRadius: BorderRadius.circular(
                                   AppTheme.borderRadiusS,
                                 ),
-                                onTap: () => _acceptRequest(req['userId']!),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppTheme.spacingM,
-                                    vertical: AppTheme.spacingS,
+                                boxShadow: AppTheme.buttonShadow,
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.borderRadiusS,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.check_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: AppTheme.spacingXS),
-                                      Text(
-                                        'Xác nhận',
-                                        style: AppTheme.buttonTextStyle
-                                            .copyWith(fontSize: 14),
-                                      ),
-                                    ],
+                                  onTap: () => _acceptRequest(req['userId']!),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppTheme.spacingM,
+                                      vertical: AppTheme.spacingS,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.check_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: AppTheme.spacingXS),
+                                        Text(
+                                          'Xác nhận',
+                                          style: AppTheme.buttonTextStyle
+                                              .copyWith(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: AppTheme.spacingS),
-                          // Decline button
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.errorColor,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.borderRadiusS,
-                              ),
-                              boxShadow: AppTheme.buttonShadow,
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
+                            const SizedBox(width: AppTheme.spacingM),
+                            // Decline button
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXS),
+                              decoration: BoxDecoration(
+                                color: AppTheme.errorColor,
                                 borderRadius: BorderRadius.circular(
                                   AppTheme.borderRadiusS,
                                 ),
-                                onTap: () => _declineRequest(req['userId']!),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppTheme.spacingM,
-                                    vertical: AppTheme.spacingS,
+                                boxShadow: AppTheme.buttonShadow,
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.borderRadiusS,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.close_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: AppTheme.spacingXS),
-                                      Text(
-                                        'Từ chối',
-                                        style: AppTheme.buttonTextStyle
-                                            .copyWith(fontSize: 14),
-                                      ),
-                                    ],
+                                  onTap: () => _declineRequest(req['userId']!),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppTheme.spacingM,
+                                      vertical: AppTheme.spacingS,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: AppTheme.spacingXS),
+                                        Text(
+                                          'Từ chối',
+                                          style: AppTheme.buttonTextStyle
+                                              .copyWith(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
                   );
                 },

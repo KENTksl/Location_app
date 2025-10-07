@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:locationrealtime/services/auth_service.dart';
 import 'package:locationrealtime/models/user.dart' as app_user;
 
@@ -30,10 +28,12 @@ void main() {
 
   group('AuthService', () {
     test('signUp returns app_user.User when successful', () async {
-      when(mockAuth.createUserWithEmailAndPassword(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => mockUserCredential);
+      when(
+        mockAuth.createUserWithEmailAndPassword(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => mockUserCredential);
 
       when(mockUserCredential.user).thenReturn(mockUser);
       when(mockUser.uid).thenReturn('123');
@@ -50,10 +50,12 @@ void main() {
     });
 
     test('signIn returns user from database if exists', () async {
-      when(mockAuth.signInWithEmailAndPassword(
-        email: anyNamed('email'),
-        password: anyNamed('password'),
-      )).thenAnswer((_) async => mockUserCredential);
+      when(
+        mockAuth.signInWithEmailAndPassword(
+          email: anyNamed('email'),
+          password: anyNamed('password'),
+        ),
+      ).thenAnswer((_) async => mockUserCredential);
 
       when(mockUserCredential.user).thenReturn(mockUser);
       when(mockUser.uid).thenReturn('123');
@@ -80,11 +82,13 @@ void main() {
     });
 
     test('forgotPassword calls sendPasswordResetEmail', () async {
-      when(mockAuth.sendPasswordResetEmail(email: anyNamed('email')))
-          .thenAnswer((_) async {});
+      when(
+        mockAuth.sendPasswordResetEmail(email: anyNamed('email')),
+      ).thenAnswer((_) async {});
       await authService.forgotPassword('test@example.com');
-      verify(mockAuth.sendPasswordResetEmail(email: 'test@example.com'))
-          .called(1);
+      verify(
+        mockAuth.sendPasswordResetEmail(email: 'test@example.com'),
+      ).called(1);
     });
 
     test('getCurrentUser returns app_user.User if signed in', () {

@@ -131,15 +131,22 @@ class _FriendSearchPageState extends State<FriendSearchPage> {
                               radius: 28,
                               backgroundColor: AppTheme.primaryColor
                                   .withOpacity(0.1),
-                              child: Text(
-                                (_foundUserEmail != null &&
-                                        _foundUserEmail!.isNotEmpty)
-                                    ? _foundUserEmail![0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.bold,
+                              child: ClipOval(
+                                child: Container(
+                                  width: 56,
+                                  height: 56,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    (_foundUserEmail != null &&
+                                            _foundUserEmail!.isNotEmpty)
+                                        ? _foundUserEmail![0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -148,10 +155,8 @@ class _FriendSearchPageState extends State<FriendSearchPage> {
                               style: AppTheme.bodyStyle.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            subtitle: Text(
-                              'ID: $_foundUserId',
-                              style: AppTheme.captionStyle,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                             trailing: Container(
                               decoration: BoxDecoration(

@@ -1,11 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:geolocator/geolocator.dart';
 
 import 'package:locationrealtime/models/location_history.dart';
 import 'package:locationrealtime/services/location_history_service.dart';

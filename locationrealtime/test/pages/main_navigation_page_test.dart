@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:locationrealtime/pages/main_navigation_page.dart';
-import '../test_helper.dart';
 
 // Mock pages to avoid Firebase dependencies
 class MockMapPage extends StatelessWidget {
   final String? focusFriendId;
   final String? focusFriendEmail;
-  
+
   const MockMapPage({super.key, this.focusFriendId, this.focusFriendEmail});
 
   @override
@@ -19,7 +18,8 @@ class MockMapPage extends StatelessWidget {
           children: [
             const Text('Map Page'),
             if (focusFriendId != null) Text('Focus Friend ID: $focusFriendId'),
-            if (focusFriendEmail != null) Text('Focus Friend Email: $focusFriendEmail'),
+            if (focusFriendEmail != null)
+              Text('Focus Friend Email: $focusFriendEmail'),
           ],
         ),
       ),
@@ -32,11 +32,7 @@ class MockFriendsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Friends List Page'),
-      ),
-    );
+    return const Scaffold(body: Center(child: Text('Friends List Page')));
   }
 }
 
@@ -45,11 +41,7 @@ class MockUserProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('User Profile Page'),
-      ),
-    );
+    return const Scaffold(body: Center(child: Text('User Profile Page')));
   }
 }
 
@@ -58,7 +50,7 @@ class TestMainNavigationPage extends StatefulWidget {
   final String? focusFriendId;
   final String? focusFriendEmail;
   final int? selectedTab;
-  
+
   const TestMainNavigationPage({
     super.key,
     this.focusFriendId,
@@ -76,6 +68,7 @@ class _TestMainNavigationPageState extends State<TestMainNavigationPage>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // ignore: unused_field
   final List<Widget> _pages = const [
     MockMapPage(),
     MockFriendsListPage(),
@@ -147,7 +140,7 @@ class _TestMainNavigationPageState extends State<TestMainNavigationPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),
@@ -190,8 +183,8 @@ class _TestMainNavigationPageState extends State<TestMainNavigationPage>
           gradient: isSelected
               ? LinearGradient(
                   colors: [
-                    item.color.withOpacity(0.2),
-                    item.color.withOpacity(0.1),
+                    item.color.withValues(alpha: 0.2),
+                item.color.withValues(alpha: 0.1),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -255,7 +248,9 @@ void main() {
       );
     }
 
-    testWidgets('should display with default tab selected', (WidgetTester tester) async {
+    testWidgets('should display with default tab selected', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -265,7 +260,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should display with custom selected tab', (WidgetTester tester) async {
+    testWidgets('should display with custom selected tab', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget(selectedTab: 1));
       await tester.pumpAndSettle();
 
@@ -275,7 +272,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should have proper navigation structure', (WidgetTester tester) async {
+    testWidgets('should have proper navigation structure', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -284,7 +283,9 @@ void main() {
       expect(find.byType(IndexedStack), findsOneWidget);
     });
 
-    testWidgets('should show all navigation items', (WidgetTester tester) async {
+    testWidgets('should show all navigation items', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -294,7 +295,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should show correct icons for navigation items', (WidgetTester tester) async {
+    testWidgets('should show correct icons for navigation items', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -316,7 +319,9 @@ void main() {
       expect(find.text('Bạn bè'), findsOneWidget);
     });
 
-    testWidgets('should handle tab switching to profile', (WidgetTester tester) async {
+    testWidgets('should handle tab switching to profile', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -328,7 +333,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should handle tab switching back to map', (WidgetTester tester) async {
+    testWidgets('should handle tab switching back to map', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -344,7 +351,9 @@ void main() {
       expect(find.text('Bản đồ'), findsOneWidget);
     });
 
-    testWidgets('should have animations when switching tabs', (WidgetTester tester) async {
+    testWidgets('should have animations when switching tabs', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -353,7 +362,9 @@ void main() {
       expect(find.byType(AnimatedContainer), findsWidgets);
     });
 
-    testWidgets('should have proper bottom navigation styling', (WidgetTester tester) async {
+    testWidgets('should have proper bottom navigation styling', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -362,11 +373,15 @@ void main() {
       expect(find.byType(SafeArea), findsOneWidget);
     });
 
-    testWidgets('should handle focus friend parameters', (WidgetTester tester) async {
-      await tester.pumpWidget(createTestWidget(
-        focusFriendId: 'friend-123',
-        focusFriendEmail: 'friend@example.com',
-      ));
+    testWidgets('should handle focus friend parameters', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        createTestWidget(
+          focusFriendId: 'friend-123',
+          focusFriendEmail: 'friend@example.com',
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Should still show navigation structure
@@ -375,7 +390,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should have proper navigation item colors', (WidgetTester tester) async {
+    testWidgets('should have proper navigation item colors', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -383,7 +400,9 @@ void main() {
       expect(find.byType(AnimatedContainer), findsWidgets);
     });
 
-    testWidgets('should handle navigation item tap animations', (WidgetTester tester) async {
+    testWidgets('should handle navigation item tap animations', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -395,7 +414,9 @@ void main() {
       expect(find.byType(AnimatedContainer), findsWidgets);
     });
 
-    testWidgets('should maintain state when switching tabs', (WidgetTester tester) async {
+    testWidgets('should maintain state when switching tabs', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -411,7 +432,9 @@ void main() {
       expect(find.text('Bản đồ'), findsOneWidget);
     });
 
-    testWidgets('should have proper navigation item spacing', (WidgetTester tester) async {
+    testWidgets('should have proper navigation item spacing', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -419,7 +442,9 @@ void main() {
       expect(find.byType(Row), findsWidgets);
     });
 
-    testWidgets('should handle navigation item selection state', (WidgetTester tester) async {
+    testWidgets('should handle navigation item selection state', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -434,7 +459,9 @@ void main() {
       expect(find.text('Bạn bè'), findsOneWidget);
     });
 
-    testWidgets('should have proper navigation item labels', (WidgetTester tester) async {
+    testWidgets('should have proper navigation item labels', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -444,7 +471,9 @@ void main() {
       expect(find.text('Cá nhân'), findsOneWidget);
     });
 
-    testWidgets('should handle navigation item icon changes', (WidgetTester tester) async {
+    testWidgets('should handle navigation item icon changes', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -454,7 +483,9 @@ void main() {
       expect(find.byIcon(Icons.person_rounded), findsOneWidget);
     });
 
-    testWidgets('should have proper navigation item animations', (WidgetTester tester) async {
+    testWidgets('should have proper navigation item animations', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 

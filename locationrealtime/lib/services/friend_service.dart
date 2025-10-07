@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:geolocator/geolocator.dart';
 import '../models/friend.dart';
 import '../models/friend_request.dart';
 import 'geolocator_wrapper.dart';
@@ -15,8 +14,8 @@ class FriendService {
     FirebaseDatabase? database,
     GeolocatorWrapper? geolocator,
   }) : _auth = auth ?? FirebaseAuth.instance,
-        _database = database ?? FirebaseDatabase.instance,
-        _geolocator = geolocator ?? GeolocatorWrapperImpl();
+       _database = database ?? FirebaseDatabase.instance,
+       _geolocator = geolocator ?? GeolocatorWrapperImpl();
 
   // Lấy danh sách bạn bè
   Future<List<Friend>> getFriends() async {

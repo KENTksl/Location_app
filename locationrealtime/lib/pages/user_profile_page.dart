@@ -305,14 +305,15 @@ class _UserProfilePageState extends State<UserProfilePage>
 
         // Xóa trạng thái chia sẻ khỏi Firebase
         if (user != null) {
-          // Xóa toàn bộ dữ liệu vị trí để marker biến mất
+          // Cập nhật trạng thái isSharingLocation thành false thay vì xóa
           await FirebaseDatabase.instance
-              .ref('users/${user!.uid}/location')
-              .remove();
+              .ref('users/${user!.uid}/location/isSharingLocation')
+              .set(false);
 
+          // Đảm bảo cập nhật trường isSharingLocation riêng
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/isSharingLocation')
-              .remove();
+              .set(false);
 
           await FirebaseDatabase.instance
               .ref('users/${user!.uid}/locationSharingStartedAt')

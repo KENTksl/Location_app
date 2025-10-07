@@ -95,7 +95,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),
@@ -138,8 +138,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           gradient: isSelected
               ? LinearGradient(
                   colors: [
-                    item.color.withOpacity(0.2),
-                    item.color.withOpacity(0.1),
+                    item.color.withValues(alpha: 0.2),
+                item.color.withValues(alpha: 0.1),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,

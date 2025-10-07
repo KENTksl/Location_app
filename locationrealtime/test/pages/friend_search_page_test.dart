@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:locationrealtime/pages/friend_search_page.dart';
 
 // Mock Firebase Core
@@ -20,8 +18,14 @@ class TestFirebase {
 
 void main() {
   group('FriendSearchPage', () {
+    // ignore: unused_local_variable
     late MockFirebaseAuth mockAuth;
+    // ignore: unused_local_variable
     late MockUser mockUser;
+
+    setUpAll(() async {
+      await TestFirebase.setupFirebaseForTesting();
+    });
 
     setUp(() {
       mockAuth = MockFirebaseAuth();
@@ -34,9 +38,7 @@ void main() {
     });
 
     Widget createTestWidget() {
-      return MaterialApp(
-        home: FriendSearchPage(),
-      );
+      return MaterialApp(home: FriendSearchPage());
     }
 
     testWidgets('should display correct title', (WidgetTester tester) async {
@@ -46,7 +48,9 @@ void main() {
       expect(find.text('Tìm kiếm bạn bè'), findsOneWidget);
     });
 
-    testWidgets('should show search form with email input', (WidgetTester tester) async {
+    testWidgets('should show search form with email input', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -62,7 +66,9 @@ void main() {
       expect(find.text('Tìm kiếm'), findsOneWidget);
     });
 
-    testWidgets('should have proper styling and layout', (WidgetTester tester) async {
+    testWidgets('should have proper styling and layout', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -73,14 +79,18 @@ void main() {
       expect(find.byType(Container), findsWidgets);
     });
 
-    testWidgets('should show email icon in search field', (WidgetTester tester) async {
+    testWidgets('should show email icon in search field', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.email_rounded), findsOneWidget);
     });
 
-    testWidgets('should have search field with proper styling', (WidgetTester tester) async {
+    testWidgets('should have search field with proper styling', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -88,7 +98,9 @@ void main() {
       expect(textField.style?.fontSize, 18);
     });
 
-    testWidgets('should show search form elements', (WidgetTester tester) async {
+    testWidgets('should show search form elements', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -98,7 +110,9 @@ void main() {
       expect(find.byIcon(Icons.email_rounded), findsOneWidget);
     });
 
-    testWidgets('should have proper input decoration', (WidgetTester tester) async {
+    testWidgets('should have proper input decoration', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -106,7 +120,9 @@ void main() {
       expect(find.text('Nhập email bạn bè'), findsOneWidget);
     });
 
-    testWidgets('should handle search field input', (WidgetTester tester) async {
+    testWidgets('should handle search field input', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -118,7 +134,9 @@ void main() {
       expect(find.text('test@example.com'), findsOneWidget);
     });
 
-    testWidgets('should have proper button styling', (WidgetTester tester) async {
+    testWidgets('should have proper button styling', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -126,7 +144,9 @@ void main() {
       expect(find.text('Tìm kiếm'), findsOneWidget);
     });
 
-    testWidgets('should handle search field focus', (WidgetTester tester) async {
+    testWidgets('should handle search field focus', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -138,7 +158,9 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
     });
 
-    testWidgets('should have proper spacing between elements', (WidgetTester tester) async {
+    testWidgets('should have proper spacing between elements', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -146,7 +168,9 @@ void main() {
       expect(find.byType(SizedBox), findsWidgets);
     });
 
-    testWidgets('should handle search field clear', (WidgetTester tester) async {
+    testWidgets('should handle search field clear', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -162,7 +186,9 @@ void main() {
       expect(find.text('test@example.com'), findsNothing);
     });
 
-    testWidgets('should have proper gradient background', (WidgetTester tester) async {
+    testWidgets('should have proper gradient background', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -170,7 +196,9 @@ void main() {
       expect(find.byType(Container), findsWidgets);
     });
 
-    testWidgets('should have proper search form layout', (WidgetTester tester) async {
+    testWidgets('should have proper search form layout', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 

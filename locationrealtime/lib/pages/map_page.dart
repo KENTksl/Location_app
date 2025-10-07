@@ -635,7 +635,7 @@ class _MapPageState extends State<MapPage> {
       final isOnline = data['isOnline'] as bool? ?? false;
       final isSharing = data['isSharingLocation'] as bool? ?? false;
 
-      if (lng != null && isOnline && isSharing) {
+      if (isOnline && isSharing) {
         final LatLng friendPos = LatLng(lat, lng);
 
         // Focus camera vào vị trí bạn bè ngay lập tức

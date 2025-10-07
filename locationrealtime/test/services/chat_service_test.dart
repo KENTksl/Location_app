@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:locationrealtime/models/chat_message.dart';
 import 'package:locationrealtime/services/chat_service.dart';
 

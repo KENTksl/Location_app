@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'friend_search_page.dart';
 import 'user_profile_page.dart';
 import 'package:random_avatar/random_avatar.dart';
@@ -33,6 +35,73 @@ class _FriendsListPageState extends State<FriendsListPage> {
   final Map<String, StreamSubscription> _friendLocationSubscriptions = {};
   Timer? _distanceUpdateTimer;
 
+  // Nickname storage
+  final Map<String, String> _friendNicknames = {};
+
+  // Hiển thị hộp thoại xác nhận xóa kết bạn
+  void _showDeleteFriendDialog(Map<String, dynamic> friend) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xóa kết bạn'),
+          content: Text(
+            'Bạn có chắc chắn muốn xóa kết bạn với ${friend['email'].split('@')[0]}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () {
+                _deleteFriend(friend['id']);
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Xóa',
+                style: TextStyle(color: Color(0xFFef4444)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Xử lý xóa kết bạn
+  Future<void> _deleteFriend(String friendId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Xóa bạn bè từ danh sách của người dùng hiện tại
+        await FirebaseDatabase.instance
+            .ref('users/${user.uid}/friends/$friendId')
+            .remove();
+
+        // Xóa người dùng hiện tại từ danh sách bạn bè của người bạn
+        await FirebaseDatabase.instance
+            .ref('users/$friendId/friends/${user.uid}')
+            .remove();
+
+        // Cập nhật UI
+        setState(() {
+          _friends.removeWhere((friend) => friend['id'] == friendId);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xóa kết bạn thành công')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi xóa kết bạn: $e')));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +111,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _listenToFriendsChanges();
     _getCurrentLocation();
     _startDistanceUpdateTimer();
+    _loadNicknames();
   }
 
   @override
@@ -475,7 +545,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
         final isOnline = data['isOnline'] as bool? ?? false;
         final isSharing = data['isSharingLocation'] as bool? ?? false;
 
-        if (lat != null && lng != null && isOnline && isSharing) {
+        // Kiểm tra cả trạng thái chia sẻ vị trí ở cả hai nơi
+        final isSharingLocation =
+            isSharing &&
+            (data['isSharingLocation'] != false); // Đảm bảo không phải false
+
+        if (lat != null && lng != null && isOnline && isSharingLocation) {
           // Tính khoảng cách
           final distance =
               Geolocator.distanceBetween(
@@ -693,139 +768,276 @@ class _FriendsListPageState extends State<FriendsListPage> {
                           itemBuilder: (context, index) {
                             final friend = _filteredFriends[index];
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  _buildFriendAvatar(
-                                    friend['avatarUrl'],
-                                    friend['email'],
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          friend['email'].split('@')[0],
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF1e293b),
-                                          ),
-                                        ),
-                                        Text(
-                                          friend['email'],
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.location_on_rounded,
-                                              size: 14,
-                                              color:
-                                                  _friendDistances[friend['id']] !=
-                                                      null
-                                                  ? const Color(0xFF10b981)
-                                                  : Colors.grey.shade400,
+                                ],
+                                border: Border.all(
+                                  color: Colors.grey.shade100,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  // Main row with avatar and user info
+                                  Row(
+                                    children: [
+                                      // Avatar
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(
+                                                0xFF667eea,
+                                              ).withOpacity(0.2),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
                                             ),
-                                            const SizedBox(width: 4),
+                                          ],
+                                        ),
+                                        child: _buildFriendAvatar(
+                                          friend['avatarUrl'],
+                                          friend['email'],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // User info
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              _friendDistances[friend['id']] !=
-                                                      null
-                                                  ? _formatDistance(
-                                                      _friendDistances[friend['id']],
-                                                    )
-                                                  : 'Không chia sẻ vị trí',
+                                              _getDisplayName(friend),
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF1e293b),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              friend['email'],
                                               style: TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 13,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  // Bottom row with distance and actions
+                                  Row(
+                                    children: [
+                                      // Distance info
+                                      Expanded(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                _friendDistances[friend['id']] !=
+                                                    null
+                                                ? const Color(
+                                                    0xFF10b981,
+                                                  ).withOpacity(0.1)
+                                                : Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.location_on_rounded,
+                                                size: 14,
                                                 color:
                                                     _friendDistances[friend['id']] !=
                                                         null
                                                     ? const Color(0xFF10b981)
                                                     : Colors.grey.shade500,
-                                                fontWeight: FontWeight.w500,
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Action buttons
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Chat button
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFFf59e0b,
-                                          ).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.chat_bubble_rounded,
-                                            color: Color(0xFFf59e0b),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => ChatPage(
-                                                  friendId: friend['id'],
-                                                  friendEmail: friend['email'],
+                                              const SizedBox(width: 4),
+                                              Flexible(
+                                                child: Text(
+                                                  _friendDistances[friend['id']] !=
+                                                          null
+                                                      ? _formatDistance(
+                                                          _friendDistances[friend['id']],
+                                                        )
+                                                      : 'Không chia sẻ vị trí',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        _friendDistances[friend['id']] !=
+                                                            null
+                                                        ? const Color(
+                                                            0xFF10b981,
+                                                          )
+                                                        : Colors.grey.shade600,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
-                                            );
-                                          },
+                                            ],
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      // Location button
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF667eea,
-                                          ).withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.location_on_rounded,
-                                            color: Color(0xFF667eea),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.pushReplacement(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    MainNavigationPage(
-                                                      focusFriendId:
-                                                          friend['id'],
-                                                      focusFriendEmail:
-                                                          friend['email'],
-                                                      selectedTab: 0,
-                                                    ),
+                                      // Action buttons
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Chat button
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFFf59e0b,
+                                              ).withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                Icons.chat_bubble_rounded,
+                                                color: Color(0xFFf59e0b),
+                                                size: 18,
                                               ),
-                                            );
-                                          },
-                                        ),
+                                              onPressed: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        ChatPage(
+                                                          friendId:
+                                                              friend['id'],
+                                                          friendEmail:
+                                                              friend['email'],
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // Edit nickname button
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF8b5cf6,
+                                              ).withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                Icons.edit_rounded,
+                                                color: Color(0xFF8b5cf6),
+                                                size: 18,
+                                              ),
+                                              onPressed: () =>
+                                                  _showNicknameDialog(friend),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // Delete friend button
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFFef4444,
+                                              ).withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                Icons.person_remove_rounded,
+                                                color: Color(0xFFef4444),
+                                                size: 18,
+                                              ),
+                                              onPressed: () {
+                                                _showDeleteFriendDialog(friend);
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // Location button
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF667eea,
+                                              ).withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                Icons.location_on_rounded,
+                                                color: Color(0xFF667eea),
+                                                size: 18,
+                                              ),
+                                              onPressed: () {
+                                                if (_friendDistances[friend['id']] !=
+                                                    null) {
+                                                  Navigator.pushReplacement(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          MainNavigationPage(
+                                                            focusFriendId:
+                                                                friend['id'],
+                                                            focusFriendEmail:
+                                                                friend['email'],
+                                                            selectedTab: 0,
+                                                          ),
+                                                    ),
+                                                  );
+                                                } else {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Bạn này chưa chia sẻ vị trí',
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -839,6 +1051,86 @@ class _FriendsListPageState extends State<FriendsListPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Load nicknames from SharedPreferences
+  Future<void> _loadNicknames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nicknamesJson = prefs.getString('friend_nicknames');
+    if (nicknamesJson != null) {
+      final Map<String, dynamic> decoded = json.decode(nicknamesJson);
+      setState(() {
+        _friendNicknames.clear();
+        decoded.forEach((key, value) {
+          _friendNicknames[key] = value.toString();
+        });
+      });
+    }
+  }
+
+  // Save nicknames to SharedPreferences
+  Future<void> _saveNicknames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nicknamesJson = json.encode(_friendNicknames);
+    await prefs.setString('friend_nicknames', nicknamesJson);
+  }
+
+  // Set nickname for a friend
+  Future<void> _setNickname(String friendId, String nickname) async {
+    setState(() {
+      if (nickname.trim().isEmpty) {
+        _friendNicknames.remove(friendId);
+      } else {
+        _friendNicknames[friendId] = nickname.trim();
+      }
+    });
+    await _saveNicknames();
+  }
+
+  // Get display name (nickname or original name)
+  String _getDisplayName(Map<String, dynamic> friend) {
+    final friendId = friend['id'] as String;
+    return _friendNicknames[friendId] ??
+        friend['name'] ??
+        friend['email'] ??
+        'Unknown';
+  }
+
+  // Show nickname dialog
+  void _showNicknameDialog(Map<String, dynamic> friend) {
+    final friendId = friend['id'] as String;
+    final currentNickname = _friendNicknames[friendId] ?? '';
+    final controller = TextEditingController(text: currentNickname);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Đặt biệt danh cho ${friend['name'] ?? friend['email']}'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Nhập biệt danh...',
+            border: OutlineInputBorder(),
+          ),
+          maxLength: 50,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _setNickname(friendId, controller.text);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
       ),
     );
   }

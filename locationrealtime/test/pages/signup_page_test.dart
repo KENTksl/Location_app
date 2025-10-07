@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:locationrealtime/pages/signup_page.dart';
-import 'package:locationrealtime/theme.dart';
 
 void main() {
   group('SignupPage', () {
     Widget createTestWidget() {
-      return MaterialApp(
-        home: SignupPage(),
-      );
+      return MaterialApp(home: SignupPage());
     }
 
     // Helper method to find the signup button more reliably
@@ -16,25 +13,27 @@ void main() {
       // The button is wrapped in AppTheme.primaryButton which creates a Container > Material > InkWell structure
       // Look for the button text that has an InkWell ancestor (not the AppBar title)
       final allSignupTexts = find.text('Đăng ký');
-      
+
       for (int i = 0; i < allSignupTexts.evaluate().length; i++) {
         final textFinder = find.text('Đăng ký').at(i);
         final inkWellAncestor = find.ancestor(
           of: textFinder,
           matching: find.byType(InkWell),
         );
-        
+
         if (inkWellAncestor.evaluate().isNotEmpty) {
           // This is the button text, return the InkWell
           return inkWellAncestor.last;
         }
       }
-      
+
       // Fallback: return the first text (should be the button)
       return allSignupTexts.first;
     }
 
-    testWidgets('should display correct title and description', (WidgetTester tester) async {
+    testWidgets('should display correct title and description', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -44,7 +43,9 @@ void main() {
       expect(find.text('Điền thông tin để đăng ký'), findsOneWidget);
     });
 
-    testWidgets('should show all required input fields', (WidgetTester tester) async {
+    testWidgets('should show all required input fields', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -61,7 +62,9 @@ void main() {
       expect(find.byIcon(Icons.person_add_rounded), findsOneWidget);
     });
 
-    testWidgets('should have email field with email keyboard type', (WidgetTester tester) async {
+    testWidgets('should have email field with email keyboard type', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -69,13 +72,19 @@ void main() {
       expect(emailField.keyboardType, TextInputType.emailAddress);
     });
 
-    testWidgets('should have password fields with obscure text', (WidgetTester tester) async {
+    testWidgets('should have password fields with obscure text', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      final passwordField = tester.widget<TextField>(find.byType(TextField).at(1));
-      final confirmPasswordField = tester.widget<TextField>(find.byType(TextField).at(2));
-      
+      final passwordField = tester.widget<TextField>(
+        find.byType(TextField).at(1),
+      );
+      final confirmPasswordField = tester.widget<TextField>(
+        find.byType(TextField).at(2),
+      );
+
       expect(passwordField.obscureText, isTrue);
       expect(confirmPasswordField.obscureText, isTrue);
     });
@@ -89,7 +98,9 @@ void main() {
       expect(find.text('Đăng nhập'), findsOneWidget);
     });
 
-    testWidgets('should have proper styling and layout', (WidgetTester tester) async {
+    testWidgets('should have proper styling and layout', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -100,50 +111,58 @@ void main() {
       expect(find.byType(Container), findsWidgets);
     });
 
-    testWidgets('should have proper button styling', (WidgetTester tester) async {
+    testWidgets('should have proper button styling', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       final signupButton = findSignupButton();
       expect(signupButton, findsOneWidget);
-      
+
       // Simplified test: just check if the button exists and has proper text
       expect(find.text('Đăng ký'), findsNWidgets(2)); // AppBar title + button
     });
 
-    testWidgets('should handle input field focus correctly', (WidgetTester tester) async {
+    testWidgets('should handle input field focus correctly', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       // Tap on email field
       await tester.tap(find.byType(TextField).at(0));
       await tester.pump();
-      
+
       // Should show keyboard (this is a basic focus test)
       expect(find.byType(TextField).at(0), findsOneWidget);
     });
 
-    testWidgets('should have proper input field styling', (WidgetTester tester) async {
+    testWidgets('should have proper input field styling', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       // Check if all text fields have proper decoration
       final textFields = find.byType(TextField);
       expect(textFields, findsNWidgets(3));
-      
+
       for (int i = 0; i < 3; i++) {
         final textField = tester.widget<TextField>(textFields.at(i));
         expect(textField.decoration, isNotNull);
       }
     });
 
-    testWidgets('should have proper spacing and layout', (WidgetTester tester) async {
+    testWidgets('should have proper spacing and layout', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       // Check if the page has proper spacing elements
       expect(find.byType(SizedBox), findsWidgets);
-      
+
       // Check if the gradient background is applied
       final container = find.byType(Container).first;
       final containerWidget = tester.widget<Container>(container);
@@ -157,7 +176,7 @@ void main() {
       // Check if the form is wrapped in a card-like container
       final containers = find.byType(Container);
       expect(containers, findsWidgets);
-      
+
       // The form should be in a white container (card)
       bool hasWhiteCard = false;
       for (final container in containers.evaluate()) {

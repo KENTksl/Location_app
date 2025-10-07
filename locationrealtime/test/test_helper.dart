@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:mockito/mockito.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 // Mock Firebase for testing
 class MockFirebase {
   static Future<void> setup() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    
+
     // Create mock Firebase app
     final mockApp = MockFirebaseApp();
-    
+
     // Mock Firebase.initializeApp to return our mock app
     when(Firebase.initializeApp()).thenAnswer((_) async => mockApp);
     when(Firebase.app()).thenReturn(mockApp);
@@ -24,22 +22,23 @@ class MockFirebase {
 class MockFirebaseApp extends Mock implements FirebaseApp {
   @override
   String get name => '[DEFAULT]';
-  
+
   @override
   FirebaseOptions get options => MockFirebaseOptions();
 }
 
 // Mock Firebase Options
+// ignore: must_be_immutable
 class MockFirebaseOptions extends Mock implements FirebaseOptions {
   @override
   String get apiKey => 'test-api-key';
-  
+
   @override
   String get appId => 'test-app-id';
-  
+
   @override
   String get messagingSenderId => 'test-sender-id';
-  
+
   @override
   String get projectId => 'test-project-id';
 }
@@ -54,10 +53,10 @@ class MockFirebaseDatabase extends Mock implements FirebaseDatabase {
 class MockDatabaseReference extends Mock implements DatabaseReference {
   @override
   DatabaseReference child(String path) => this;
-  
+
   @override
   Future<DataSnapshot> get() async => MockDataSnapshot();
-  
+
   @override
   Future<void> set(dynamic value) async {}
 }
@@ -66,13 +65,13 @@ class MockDatabaseReference extends Mock implements DatabaseReference {
 class MockDataSnapshot extends Mock implements DataSnapshot {
   @override
   bool get exists => false;
-  
+
   @override
   Iterable<DataSnapshot> get children => [];
-  
+
   @override
   dynamic get value => null;
-  
+
   @override
   String? get key => null;
 }
@@ -80,14 +79,12 @@ class MockDataSnapshot extends Mock implements DataSnapshot {
 // Test app wrapper that provides a simple test environment
 class TestApp extends StatelessWidget {
   final Widget child;
-  
+
   const TestApp({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: child,
-    );
+    return MaterialApp(home: child);
   }
 }
 
@@ -97,7 +94,7 @@ class TestUtils {
     await tester.pumpWidget(TestApp(child: widget));
     await tester.pumpAndSettle();
   }
-  
+
   static Future<void> tapAndWait(WidgetTester tester, Finder finder) async {
     await tester.tap(finder);
     await tester.pumpAndSettle();

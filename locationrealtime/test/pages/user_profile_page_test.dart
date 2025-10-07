@@ -5,7 +5,8 @@ import 'package:locationrealtime/pages/user_profile_page.dart';
 
 void main() {
   group('UserProfilePage', () {
-    Widget createTestWidget() {
+    // ignore: unused_element
+Widget createTestWidget() {
       return MaterialApp(
         home: const UserProfilePage(),
       );

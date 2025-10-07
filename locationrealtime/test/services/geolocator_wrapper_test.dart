@@ -1,9 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mockito/mockito.dart';
-import 'package:mockito/annotations.dart';
 
-import 'package:locationrealtime/services/geolocator_wrapper.dart';
 import '../services/mock.mocks.dart'; // file auto-gen từ mock.dart
 
 class FakePosition extends Position {
@@ -57,17 +55,23 @@ void main() {
     test('getCurrentPosition returns correct position', () async {
       final fakePos = FakePosition();
       when(
-        mockGeo.getCurrentPosition(locationSettings: anyNamed('locationSettings')),
+        mockGeo.getCurrentPosition(
+          locationSettings: anyNamed('locationSettings'),
+        ),
       ).thenAnswer((_) async => fakePos);
 
       final result = await mockGeo.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       expect(result.latitude, 10.0);
       expect(result.longitude, 20.0);
       verify(
-        mockGeo.getCurrentPosition(locationSettings: anyNamed('locationSettings')),
+        mockGeo.getCurrentPosition(
+          locationSettings: anyNamed('locationSettings'),
+        ),
       ).called(1);
     });
 

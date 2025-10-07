@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mockito/mockito.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:locationrealtime/pages/forgot_password_page.dart';
 
 void main() {
   group('ForgotPasswordPage', () {
+    // ignore: unused_local_variable
     late MockFirebaseAuth mockAuth;
+    // ignore: unused_local_variable
     late MockUser mockUser;
 
     setUp(() {
@@ -21,18 +21,21 @@ void main() {
     });
 
     Widget createTestWidget() {
-      return MaterialApp(
-        home: ForgotPasswordPage(),
-      );
+      return MaterialApp(home: ForgotPasswordPage());
     }
 
-    testWidgets('should display correct title and description', (WidgetTester tester) async {
+    testWidgets('should display correct title and description', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Quên mật khẩu'), findsOneWidget);
       expect(find.text('Quên mật khẩu?'), findsOneWidget);
-      expect(find.text('Nhập email của bạn để nhận link đặt lại mật khẩu'), findsOneWidget);
+      expect(
+        find.text('Nhập email của bạn để nhận link đặt lại mật khẩu'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('should show email input field', (WidgetTester tester) async {
@@ -43,7 +46,9 @@ void main() {
       expect(find.text('Email'), findsOneWidget);
     });
 
-    testWidgets('should show error message for empty email', (WidgetTester tester) async {
+    testWidgets('should show error message for empty email', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -54,7 +59,9 @@ void main() {
       expect(find.text('Vui lòng nhập email của bạn!'), findsOneWidget);
     });
 
-    testWidgets('should show error message for invalid email format', (WidgetTester tester) async {
+    testWidgets('should show error message for invalid email format', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -66,7 +73,9 @@ void main() {
       expect(find.text('Vui lòng nhập email hợp lệ!'), findsOneWidget);
     });
 
-    testWidgets('should show error message for invalid email format with @', (WidgetTester tester) async {
+    testWidgets('should show error message for invalid email format with @', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -107,14 +116,18 @@ void main() {
     });
     */
 
-    testWidgets('should show back to login button', (WidgetTester tester) async {
+    testWidgets('should show back to login button', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
       expect(find.text('Quay lại đăng nhập'), findsOneWidget);
     });
 
-    testWidgets('should navigate back when back button is pressed', (WidgetTester tester) async {
+    testWidgets('should navigate back when back button is pressed', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -125,24 +138,29 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('should not clear error message when valid email is entered (only clears on submit)', (WidgetTester tester) async {
-      await tester.pumpWidget(createTestWidget());
-      await tester.pumpAndSettle();
+    testWidgets(
+      'should not clear error message when valid email is entered (only clears on submit)',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(createTestWidget());
+        await tester.pumpAndSettle();
 
-      // First, trigger error with empty email
-      await tester.tap(find.text('Gửi email đặt lại mật khẩu'));
-      await tester.pump();
-      expect(find.text('Vui lòng nhập email của bạn!'), findsOneWidget);
+        // First, trigger error with empty email
+        await tester.tap(find.text('Gửi email đặt lại mật khẩu'));
+        await tester.pump();
+        expect(find.text('Vui lòng nhập email của bạn!'), findsOneWidget);
 
-      // Then enter valid email - error message should NOT be cleared until submit
-      await tester.enterText(find.byType(TextField), 'test@example.com');
-      await tester.pump();
+        // Then enter valid email - error message should NOT be cleared until submit
+        await tester.enterText(find.byType(TextField), 'test@example.com');
+        await tester.pump();
 
-      // Error message should still be visible (this is the actual behavior)
-      expect(find.text('Vui lòng nhập email của bạn!'), findsOneWidget);
-    });
+        // Error message should still be visible (this is the actual behavior)
+        expect(find.text('Vui lòng nhập email của bạn!'), findsOneWidget);
+      },
+    );
 
-    testWidgets('should have proper styling and layout', (WidgetTester tester) async {
+    testWidgets('should have proper styling and layout', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -161,7 +179,9 @@ void main() {
       expect(find.byIcon(Icons.lock_reset_rounded), findsOneWidget);
     });
 
-    testWidgets('should have email field with email keyboard type', (WidgetTester tester) async {
+    testWidgets('should have email field with email keyboard type', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
@@ -169,7 +189,9 @@ void main() {
       expect(textField.keyboardType, TextInputType.emailAddress);
     });
 
-    testWidgets('should trim email input before validation', (WidgetTester tester) async {
+    testWidgets('should trim email input before validation', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
