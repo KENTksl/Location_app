@@ -5,10 +5,13 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 import '../models/location_history.dart';
 import '../services/location_history_service.dart';
 import 'location_history_page.dart';
@@ -40,6 +43,9 @@ class _MapPageState extends State<MapPage> {
 
   final Map<String, Marker> _friendMarkers = {};
 
+  // Nickname storage
+  final Map<String, String> _friendNicknames = {};
+
   // Location History variables
   final LocationHistoryService _locationHistoryService =
       LocationHistoryService();
@@ -59,6 +65,7 @@ class _MapPageState extends State<MapPage> {
     _listenToFriendsLocations();
     _loadCurrentRoute();
     _listenToMySharingStatus(); // Lắng nghe trạng thái chia sẻ vị trí của bản thân
+    _loadNicknames(); // Load biệt danh
 
     if (widget.focusFriendId != null) {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
@@ -339,14 +346,28 @@ class _MapPageState extends State<MapPage> {
                 friendEmail,
               );
 
+              // Tính khoảng cách từ vị trí hiện tại tới bạn bè (km)
+              double? distanceKm;
+              if (_currentPosition != null) {
+                distanceKm = Geolocator.distanceBetween(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                      position.latitude,
+                      position.longitude,
+                    ) /
+                    1000; // km
+              }
+              final String snippetText =
+                  distanceKm != null ? '${distanceKm.toStringAsFixed(1)} km' : '';
+
               setState(() {
                 _friendMarkers[friendId] = Marker(
                   markerId: MarkerId(friendId),
                   position: position,
                   icon: markerIcon,
                   infoWindow: InfoWindow(
-                    title: friendEmail.split('@')[0],
-                    snippet: 'Bạn bè - ${_getAvatarType(avatarUrl)}',
+                    title: _getDisplayName(friendId, friendEmail),
+                    snippet: snippetText,
                   ),
                 );
               });
@@ -469,27 +490,41 @@ class _MapPageState extends State<MapPage> {
       final lat = data['lat'] as double? ?? (data['lat'] as num).toDouble();
       final lng = data['lng'] as double? ?? (data['lng'] as num).toDouble();
       final LatLng friendPos = LatLng(lat, lng);
+
+      // Tính khoảng cách từ vị trí hiện tại tới bạn bè (km)
+      double? distanceKm;
+      if (_currentPosition != null) {
+        distanceKm = Geolocator.distanceBetween(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              friendPos.latitude,
+              friendPos.longitude,
+            ) /
+            1000; // km
+      }
+      final String snippetText =
+          distanceKm != null ? '${distanceKm.toStringAsFixed(1)} km' : '';
+      final String displayName = _getDisplayName(friendId, friendEmail);
+
+      // Dùng custom marker với avatar bạn bè
+      final markerIcon = await _createCustomMarkerFromAvatar(
+        _friendAvatars[friendId],
+        friendEmail,
+      );
+
       setState(() {
         _markers.add(
           Marker(
             markerId: MarkerId('friend_$friendId'),
             position: friendPos,
-            infoWindow: InfoWindow(title: 'Bạn bè: $friendEmail'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueAzure,
-            ),
+            infoWindow: InfoWindow(title: displayName, snippet: snippetText),
+            icon: markerIcon,
           ),
         );
       });
       mapController?.animateCamera(CameraUpdate.newLatLngZoom(friendPos, 18));
-      // Vẽ đường đi và cập nhật khoảng cách liên tục
       await _drawRouteToFriend(friendId, friendPos);
       _startRouteTimer(friendId, friendPos, interval: 8);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$friendEmail chưa chia sẻ vị trí!')),
-      );
-      _stopRouteTimer();
     }
   }
 
@@ -974,51 +1009,391 @@ class _MapPageState extends State<MapPage> {
     try {
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         if (avatarUrl.startsWith('random:')) {
-          // Random avatar - màu xanh dương với chữ cái đầu
-          return BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          );
+          // Random avatar
+          final seed = avatarUrl.substring(7); // Remove 'random:' prefix
+          return await _createMarkerFromRandomAvatar(seed);
         } else if (avatarUrl.startsWith('http')) {
-          // Network image - màu cam với chữ cái đầu
-          return BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueOrange,
-          );
+          // Network image
+          return await _createMarkerFromNetworkImage(avatarUrl);
         } else {
-          // Local file - màu tím với chữ cái đầu
-          return BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          );
+          // Local file
+          return await _createMarkerFromLocalFile(avatarUrl);
         }
       } else {
-        // Default avatar - màu xanh lá với chữ cái đầu
-        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+        // Default avatar
+        return await _createMarkerFromDefaultAvatar(email);
       }
     } catch (e) {
       print('Error creating custom marker: $e');
-      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      return await _createMarkerFromDefaultAvatar(email);
     }
   }
 
   Future<BitmapDescriptor> _createMarkerFromRandomAvatar(String seed) async {
-    // Sử dụng màu xanh dương cho random avatar
-    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    try {
+      // Vẽ marker bằng canvas với biểu tượng 👤 ở giữa
+      final double size = 44.0;
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
+
+      // Nền tròn trắng
+      final Paint backgroundPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 2, backgroundPaint);
+
+      // Viền màu xanh dương
+      final Paint borderPaint = Paint()
+        ..color = Colors.blue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 2, borderPaint);
+
+      // Biểu tượng người 👤
+      final TextPainter textPainter = TextPainter(
+        text: const TextSpan(
+          text: '👤',
+          style: TextStyle(fontSize: 20, color: Colors.blue),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+            (size - textPainter.width) / 2,
+            (size - textPainter.height) / 2,
+          ),
+      );
+
+      final ui.Picture picture = recorder.endRecording();
+      final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      
+      if (byteData == null) {
+        throw Exception('Failed to convert image to byte data');
+      }
+      
+      final Uint8List uint8List = byteData.buffer.asUint8List();
+      return BitmapDescriptor.bytes(uint8List);
+    } catch (e) {
+      print('Error creating random avatar marker: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    }
   }
 
   Future<BitmapDescriptor> _createMarkerFromNetworkImage(
     String imageUrl,
   ) async {
-    // Sử dụng màu cam cho network image
-    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+    try {
+      // Tạo widget với network image
+      final avatarWidget = Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.orange, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: ClipOval(
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
+              width: 36,
+              height: 36,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.person, size: 32, color: Colors.grey[600]),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.person, size: 32, color: Colors.grey[600]),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      return await _widgetToBitmapDescriptor(avatarWidget);
+    } catch (e) {
+      print('Error creating network image marker: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+    }
   }
 
   Future<BitmapDescriptor> _createMarkerFromLocalFile(String filePath) async {
-    // Sử dụng màu tím cho local file
-    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+    try {
+      // Tạo widget với local file
+      final avatarWidget = Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.purple, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: ClipOval(
+            child: Image.file(
+              File(filePath),
+              width: 36,
+              height: 36,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey[300],
+                child: Icon(Icons.person, size: 32, color: Colors.grey[600]),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      return await _widgetToBitmapDescriptor(avatarWidget);
+    } catch (e) {
+      print('Error creating local file marker: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+    }
   }
 
   Future<BitmapDescriptor> _createMarkerFromDefaultAvatar(String email) async {
-    // Sử dụng màu xanh lá cho default avatar
-    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    try {
+      final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
+      
+      // Tạo widget với default avatar
+      final avatarWidget = Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.green, width: 2),
+          boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
+        ),
+        child: Container(
+          margin: const EdgeInsets.all(8.0),
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      return await _widgetToBitmapDescriptor(avatarWidget);
+    } catch (e) {
+      print('Error creating default avatar marker: $e');
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    }
+  }
+
+  Future<BitmapDescriptor> _widgetToBitmapDescriptor(Widget widget) async {
+    try {
+      // Sử dụng cách đơn giản hơn với canvas để vẽ trực tiếp
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final Canvas canvas = Canvas(recorder);
+      const Size size = Size(44, 44);
+      
+      // Vẽ hình tròn
+      final Paint backgroundPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      
+      final Paint borderPaint = Paint()
+        ..color = Colors.blue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      
+      // Vẽ hình tròn nền
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        size.width / 2 - 2,
+        backgroundPaint,
+      );
+      
+      // Vẽ viền
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        size.width / 2 - 2,
+        borderPaint,
+      );
+      
+      // Vẽ icon hoặc text tùy theo loại widget
+      if (widget is Container) {
+        final Widget? containerChild = widget.child;
+        ClipOval? clipOval;
+
+        // Trường hợp ClipOval nằm trực tiếp trong Container
+        if (containerChild is ClipOval) {
+          clipOval = containerChild;
+        }
+        // Trường hợp Container > Padding > ClipOval (cấu trúc hiện tại của RandomAvatar)
+        else if (containerChild is Padding && containerChild.child is ClipOval) {
+          clipOval = containerChild.child as ClipOval;
+        }
+
+        if (clipOval != null) {
+          // Luôn vẽ biểu tượng 👤 cho mọi loại avatar
+          final TextPainter textPainter = TextPainter(
+            text: const TextSpan(
+              text: '👤',
+              style: TextStyle(
+                fontSize: 20,
+                color: Colors.blue,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          textPainter.layout();
+          textPainter.paint(
+            canvas,
+            Offset(
+              (size.width - textPainter.width) / 2,
+              (size.height - textPainter.height) / 2,
+            ),
+          );
+        } else {
+          // Không nhận diện được ClipOval: vẫn vẽ 👤 theo yêu cầu
+          final TextPainter textPainter = TextPainter(
+            text: const TextSpan(
+              text: '👤',
+              style: TextStyle(
+                fontSize: 20,
+                color: Colors.blue,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          textPainter.layout();
+          textPainter.paint(
+            canvas,
+            Offset(
+              (size.width - textPainter.width) / 2,
+              (size.height - textPainter.height) / 2,
+            ),
+          );
+        }
+      } else {
+        // Default: vẽ 👤
+        final TextPainter textPainter = TextPainter(
+          text: const TextSpan(
+            text: '👤',
+            style: TextStyle(
+              fontSize: 20,
+              color: Colors.blue,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(
+            (size.width - textPainter.width) / 2,
+            (size.height - textPainter.height) / 2,
+          ),
+        );
+      }
+      
+      final ui.Picture picture = recorder.endRecording();
+      final ui.Image image = await picture.toImage(size.width.toInt(), size.height.toInt());
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      
+      final Uint8List uint8List = byteData!.buffer.asUint8List();
+      return BitmapDescriptor.bytes(uint8List);
+    } catch (e) {
+      print('Error converting widget to bitmap: $e');
+      return await _createFallbackMarker();
+    }
+  }
+
+  Future<BitmapDescriptor> _createFallbackMarker() async {
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
+    const double size = 44.0;
+
+    // Vẽ hình tròn với màu nền xanh dương
+    final Paint circlePaint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 - 2,
+      circlePaint,
+    );
+
+    // Vẽ viền trắng
+    final Paint borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 - 2,
+      borderPaint,
+    );
+
+    // Vẽ chữ cái A
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: 'A',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        (size - textPainter.width) / 2,
+        (size - textPainter.height) / 2,
+      ),
+    );
+
+    final ui.Picture picture = pictureRecorder.endRecording();
+    final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
+    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    
+    final Uint8List uint8List = byteData!.buffer.asUint8List();
+    return BitmapDescriptor.bytes(uint8List);
   }
 
   Future<void> _createMyMarker() async {
@@ -1050,8 +1425,8 @@ class _MapPageState extends State<MapPage> {
             position: _currentPosition!,
             icon: markerIcon,
             infoWindow: InfoWindow(
-              title: email.split('@')[0],
-              snippet: 'Bạn - ${_getAvatarType(_myAvatarUrl)}',
+              title: 'Bạn',
+              snippet: '',
             ),
           ),
         };
@@ -1322,5 +1697,25 @@ class _MapPageState extends State<MapPage> {
       context,
       MaterialPageRoute(builder: (context) => const LocationHistoryPage()),
     );
+  }
+
+  // Load nicknames from SharedPreferences
+  Future<void> _loadNicknames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nicknamesJson = prefs.getString('friend_nicknames');
+    if (nicknamesJson != null) {
+      final Map<String, dynamic> decoded = json.decode(nicknamesJson);
+      setState(() {
+        _friendNicknames.clear();
+        decoded.forEach((key, value) {
+          _friendNicknames[key] = value.toString();
+        });
+      });
+    }
+  }
+
+  // Get display name (nickname or original name)
+  String _getDisplayName(String friendId, String friendEmail) {
+    return _friendNicknames[friendId] ?? friendEmail.split('@')[0];
   }
 }

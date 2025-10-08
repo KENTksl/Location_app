@@ -17,6 +17,8 @@ void main() async {
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -44,6 +46,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: MyApp.navigatorKey,
       title: 'Lyn',
       debugShowCheckedModeBanner: false,
       theme: _buildLightTheme(),
