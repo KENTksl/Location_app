@@ -1024,7 +1024,7 @@ class _MapPageState extends State<MapPage> {
           return await _createMarkerFromRandomAvatar(seed);
         } else if (avatarUrl.startsWith('http')) {
           // Network image
-          return await _createMarkerFromNetworkImage(avatarUrl);
+          return await _createMarkerFromNetworkImage(avatarUrl, email);
         } else {
           // Local file
           return await _createMarkerFromLocalFile(avatarUrl);
@@ -1094,6 +1094,7 @@ class _MapPageState extends State<MapPage> {
 
   Future<BitmapDescriptor> _createMarkerFromNetworkImage(
     String imageUrl,
+    String email,
   ) async {
     try {
       // Tạo widget với network image
