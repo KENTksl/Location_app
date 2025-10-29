@@ -14,6 +14,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import '../models/location_history.dart';
 import '../services/location_history_service.dart';
+import '../services/background_location_service.dart';
 import 'location_history_page.dart';
 
 class MapPage extends StatefulWidget {

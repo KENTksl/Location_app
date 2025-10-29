@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
+import '../services/background_location_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
@@ -365,11 +367,29 @@ class _UserProfilePageState extends State<UserProfilePage>
     }
   }
 
-  void _startBackgroundLocationSharing() {
+  void _startBackgroundLocationSharing() async {
+    if (_isSharing && user != null) {
+      // Sử dụng BackgroundLocationService cho background tracking
+      final success = await BackgroundLocationService.instance.startBackgroundLocationTracking();
+      
+      if (success) {
+        print('Background location service started successfully');
+        
+        // Cập nhật trạng thái ngay lập tức
+        await _updateLocationImmediately();
+      } else {
+        print('Failed to start background location service, falling back to foreground tracking');
+        // Fallback to old method if background service fails
+        _startForegroundLocationSharing();
+      }
+    }
+  }
+  
+  void _startForegroundLocationSharing() {
     _backgroundTimer?.cancel();
     _locationSubscription?.cancel();
 
-    // Bắt đầu theo dõi vị trí real-time
+    // Bắt đầu theo dõi vị trí real-time (foreground only)
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 5, // Cập nhật khi di chuyển 5 mét
@@ -466,13 +486,19 @@ class _UserProfilePageState extends State<UserProfilePage>
     });
   }
 
-  void _stopBackgroundLocationSharing() {
+  void _stopBackgroundLocationSharing() async {
+    // Dừng BackgroundLocationService
+    await BackgroundLocationService.instance.stopBackgroundLocationTracking();
+    
+    // Dừng các timer và subscription cũ
     _backgroundTimer?.cancel();
     _backgroundTimer = null;
     _locationSubscription?.cancel();
     _locationSubscription = null;
     _locationTimer?.cancel();
     _locationTimer = null;
+    
+    print('Background location service stopped');
   }
 
   Widget _buildAvatar() {
