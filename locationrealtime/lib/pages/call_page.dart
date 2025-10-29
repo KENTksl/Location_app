@@ -28,10 +28,13 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
   bool _isSpeakerOn = false;
   bool _isVideoOn = false;
   bool _isOfferProcessed = false; // Add flag to prevent duplicate offer processing
+  bool _isVoiceActive = false; // Add voice activity state
   Timer? _callTimer;
   int _callDuration = 0;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _voiceActivityController; // Add voice activity animation controller
+  late Animation<double> _voiceActivityAnimation;
 
   final CallService _callService = CallService();
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -55,7 +58,7 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
       setState(() {
         _isCallActive = true;
       });
-      _startCallTimer();
+      // Timer will be started when call status changes to 'accepted'
     };
 
     _callService.onCallEnded = () {
@@ -65,6 +68,21 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
           _endCall();
         }
       });
+    };
+    
+    // Voice activity callback
+    _callService.onVoiceActivity = (bool isActive) {
+      if (mounted) {
+        setState(() {
+          _isVoiceActive = isActive;
+        });
+        
+        if (isActive) {
+          _voiceActivityController.forward();
+        } else {
+          _voiceActivityController.reverse();
+        }
+      }
     };
   }
 
@@ -77,6 +95,15 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _pulseController.repeat(reverse: true);
+    
+    // Voice activity animation
+    _voiceActivityController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _voiceActivityAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _voiceActivityController, curve: Curves.easeInOut),
+    );
   }
 
   void _initializeCall() async {
@@ -98,6 +125,8 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
       final callId = await CallService.startCall(widget.friendId, widget.friendEmail);
       if (callId != null) {
         print('✅ CallPage: Call started successfully with ID: $callId');
+        // Listen for receiver's response
+        _listenForAnswer(callId);
       } else {
         print('❌ CallPage: Failed to start call');
       }
@@ -125,7 +154,7 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
           setState(() {
             _isCallActive = true;
           });
-          _startCallTimer();
+          _startCallTimer(); // Receiver starts timer immediately
           print('✅ CallPage: Successfully joined call as receiver');
         } else if (callData['offer'] != null) {
           // This is the caller or offer already exists
@@ -136,7 +165,7 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
           setState(() {
             _isCallActive = true;
           });
-          _startCallTimer();
+          _startCallTimer(); // Receiver starts timer immediately
           print('✅ CallPage: Successfully joined call with existing offer');
         } else {
           print('📞 CallPage: No offer found, creating offer as caller');
@@ -177,24 +206,77 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
       // Use CallService to create offer
       await _callService.createOffer(callId);
       
+      // Listen for answer from receiver
+      _listenForAnswer(callId);
+      
       setState(() {
-        _isCallActive = true;
+        _isCallActive = false; // Caller is not active until receiver accepts
       });
-      _startCallTimer();
-      print('✅ CallPage: Offer creation completed');
+      // Don't start timer here - wait for receiver to accept
+      print('✅ CallPage: Offer creation completed, waiting for receiver to accept');
     } catch (e) {
       print('❌ CallPage: Error creating offer: $e');
     }
   }
 
+  void _listenForAnswer(String callId) {
+    print('📞 CallPage: Listening for answer from receiver');
+    final callRef = FirebaseDatabase.instance.ref('calls/$callId');
+    
+    callRef.onValue.listen((event) async {
+      if (event.snapshot.exists) {
+        final callData = event.snapshot.value as Map<dynamic, dynamic>;
+        
+        // Check if call was accepted (status changed to 'accepted')
+         if (callData['status'] == 'accepted') {
+           print('📞 CallPage: Call accepted by receiver, updating UI');
+           
+           // Update UI to show call is connected
+           if (mounted) {
+             setState(() {
+               _isCallActive = true;
+             });
+             // Start timer when call becomes active
+             _startCallTimer();
+           }
+           
+           // If answer is available, process it
+           if (callData['answer'] != null) {
+             print('📞 CallPage: Answer received from receiver');
+             
+             final answer = Map<String, dynamic>.from(callData['answer'] as Map<dynamic, dynamic>);
+             await _callService.handleCallAnswer(answer);
+             print('✅ CallPage: Successfully processed answer');
+           }
+         }
+        
+        // Also listen for answered status (backup)
+        if (callData['answer'] != null && callData['status'] == 'answered') {
+          print('📞 CallPage: Answer received from receiver (answered status)');
+          
+          final answer = Map<String, dynamic>.from(callData['answer'] as Map<dynamic, dynamic>);
+          await _callService.handleCallAnswer(answer);
+          print('✅ CallPage: Successfully processed answer');
+        }
+      }
+    });
+  }
+
   void _startCallTimer() {
+    // Only start timer if call is active
+    if (!_isCallActive) return;
+    
+    _callTimer?.cancel(); // Cancel existing timer if any
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
+      if (mounted && _isCallActive) {
         setState(() {
           _callDuration++;
         });
+      } else {
+        timer.cancel();
       }
     });
+    print('⏰ CallPage: Call timer started');
   }
 
   String _formatDuration(int seconds) {
@@ -272,32 +354,49 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
   }
 
   Widget _buildAvatar() {
-    return Container(
-      width: 150,
-      height: 150,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: AppTheme.primaryGradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+    return AnimatedBuilder(
+      animation: _voiceActivityAnimation,
+      builder: (context, child) {
+        return Container(
+          width: 150 * _voiceActivityAnimation.value,
+          height: 150 * _voiceActivityAnimation.value,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: AppTheme.primaryGradient,
+            border: _isVoiceActive 
+                ? Border.all(
+                    color: Colors.green,
+                    width: 4.0,
+                  )
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryColor.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+              if (_isVoiceActive)
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.5),
+                  blurRadius: 15,
+                  spreadRadius: 5,
+                ),
+            ],
           ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          widget.friendEmail.isNotEmpty
-              ? widget.friendEmail[0].toUpperCase()
-              : '?',
-          style: const TextStyle(
-            fontSize: 60,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          child: Center(
+            child: Text(
+              widget.friendEmail.isNotEmpty
+                  ? widget.friendEmail[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                fontSize: 60,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -327,7 +426,7 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
                     ),
                     const Spacer(),
                     Text(
-                      _isCallActive ? 'Đang gọi' : 'Đang kết nối...',
+                      _isCallActive ? 'Trong cuộc gọi' : 'Đang kết nối...',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 16,
@@ -367,7 +466,11 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
                     _isCallActive
                         ? _formatDuration(_callDuration)
                         : 'Đang gọi...',
-                    style: const TextStyle(color: Colors.white70, fontSize: 18),
+                    style: TextStyle(
+                      color: _isCallActive ? Colors.green : Colors.white70, 
+                      fontSize: 18,
+                      fontWeight: _isCallActive ? FontWeight.w600 : FontWeight.normal,
+                    ),
                   ),
                 ],
               ),
@@ -446,6 +549,13 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
       _pulseController.stop();
     }
     _pulseController.dispose();
+    
+    // Dispose voice activity controller
+    if (_voiceActivityController.isAnimating) {
+      _voiceActivityController.stop();
+    }
+    _voiceActivityController.dispose();
+    
     _localRenderer.dispose();
     _remoteRenderer.dispose();
     _callService.dispose();
