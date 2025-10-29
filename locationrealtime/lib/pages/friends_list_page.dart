@@ -12,6 +12,7 @@ import 'package:random_avatar/random_avatar.dart';
 import 'chat_page.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'main_navigation_page.dart'; // Added import for MainNavigationPage
+import '../services/unread_message_service.dart';
 
 class FriendsListPage extends StatefulWidget {
   const FriendsListPage({super.key});
@@ -37,6 +38,10 @@ class _FriendsListPageState extends State<FriendsListPage> {
 
   // Nickname storage
   final Map<String, String> _friendNicknames = {};
+
+  // Unread message service
+  final UnreadMessageService _unreadMessageService = UnreadMessageService();
+  final Map<String, int> _unreadCounts = {};
 
   // Hiển thị hộp thoại xác nhận xóa kết bạn
   void _showDeleteFriendDialog(Map<String, dynamic> friend) {
@@ -112,6 +117,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _getCurrentLocation();
     _startDistanceUpdateTimer();
     _loadNicknames();
+    _listenToUnreadMessages();
   }
 
   @override
@@ -907,7 +913,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // Chat button
+                                          // Chat button with unread badge
                                           Container(
                                             width: 36,
                                             height: 36,
@@ -918,121 +924,165 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              icon: const Icon(
-                                                Icons.chat_bubble_rounded,
-                                                color: Color(0xFFf59e0b),
-                                                size: 18,
-                                              ),
-                                              onPressed: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        ChatPage(
-                                                          friendId:
-                                                              friend['id'],
-                                                          friendEmail:
-                                                              friend['email'],
-                                                        ),
+                                            child: Stack(
+                                              children: [
+                                                IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.chat_bubble_rounded,
+                                                    color: Color(0xFFf59e0b),
+                                                    size: 18,
                                                   ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          // Edit nickname button
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFF8b5cf6,
-                                              ).withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              icon: const Icon(
-                                                Icons.edit_rounded,
-                                                color: Color(0xFF8b5cf6),
-                                                size: 18,
-                                              ),
-                                              onPressed: () =>
-                                                  _showNicknameDialog(friend),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          // Delete friend button
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFFef4444,
-                                              ).withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              icon: const Icon(
-                                                Icons.person_remove_rounded,
-                                                color: Color(0xFFef4444),
-                                                size: 18,
-                                              ),
-                                              onPressed: () {
-                                                _showDeleteFriendDialog(friend);
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          // Location button
-                                          Container(
-                                            width: 36,
-                                            height: 36,
-                                            decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFF667eea,
-                                              ).withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              icon: const Icon(
-                                                Icons.location_on_rounded,
-                                                color: Color(0xFF667eea),
-                                                size: 18,
-                                              ),
-                                              onPressed: () {
-                                                if (_friendDistances[friend['id']] !=
-                                                    null) {
-                                                  Navigator.pushReplacement(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          MainNavigationPage(
-                                                            focusFriendId:
-                                                                friend['id'],
-                                                            focusFriendEmail:
-                                                                friend['email'],
-                                                            selectedTab: 0,
-                                                          ),
-                                                    ),
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'Bạn này chưa chia sẻ vị trí',
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            ChatPage(
+                                                              friendId:
+                                                                  friend['id'],
+                                                              friendEmail:
+                                                                  friend['email'],
+                                                            ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                // Unread message badge
+                                                if (_unreadCounts[friend['id']] != null && _unreadCounts[friend['id']]! > 0)
+                                                  Positioned(
+                                                    right: 0,
+                                                    top: 0,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red,
+                                                        borderRadius: BorderRadius.circular(10),
+                                                      ),
+                                                      constraints: const BoxConstraints(
+                                                        minWidth: 16,
+                                                        minHeight: 16,
+                                                      ),
+                                                      child: Text(
+                                                        _unreadMessageService.getUnreadCountDisplay(_unreadCounts[friend['id']]!),
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                        textAlign: TextAlign.center,
                                                       ),
                                                     ),
-                                                  );
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // More actions menu
+                                          Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: PopupMenuButton<String>(
+                                              padding: EdgeInsets.zero,
+                                              icon: Icon(
+                                                Icons.more_horiz_rounded,
+                                                color: Colors.grey.shade600,
+                                                size: 18,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              offset: const Offset(0, 40),
+                                              itemBuilder: (context) => [
+                                                PopupMenuItem<String>(
+                                                  value: 'edit',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.edit_rounded,
+                                                        color: const Color(0xFF8b5cf6),
+                                                        size: 18,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      const Text('Sửa biệt danh'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                PopupMenuItem<String>(
+                                                  value: 'location',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.location_on_rounded,
+                                                        color: const Color(0xFF667eea),
+                                                        size: 18,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      const Text('Xem vị trí'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                PopupMenuItem<String>(
+                                                  value: 'delete',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.person_remove_rounded,
+                                                        color: const Color(0xFFef4444),
+                                                        size: 18,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      const Text(
+                                                        'Xóa kết bạn',
+                                                        style: TextStyle(
+                                                          color: Color(0xFFef4444),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                              onSelected: (value) {
+                                                switch (value) {
+                                                  case 'edit':
+                                                    _showNicknameDialog(friend);
+                                                    break;
+                                                  case 'location':
+                                                    if (_friendDistances[friend['id']] !=
+                                                        null) {
+                                                      Navigator.pushReplacement(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              MainNavigationPage(
+                                                                focusFriendId:
+                                                                    friend['id'],
+                                                                focusFriendEmail:
+                                                                    friend['email'],
+                                                                selectedTab: 0,
+                                                              ),
+                                                        ),
+                                                      );
+                                                    } else {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Bạn này chưa chia sẻ vị trí',
+                                                          ),
+                                                        ),
+                                                      );
+                                                    }
+                                                    break;
+                                                  case 'delete':
+                                                    _showDeleteFriendDialog(friend);
+                                                    break;
                                                 }
                                               },
                                             ),
@@ -1133,5 +1183,17 @@ class _FriendsListPageState extends State<FriendsListPage> {
         ],
       ),
     );
+  }
+
+  // Lắng nghe tin nhắn chưa đọc từ tất cả bạn bè
+  void _listenToUnreadMessages() {
+    _unreadMessageService.listenToAllUnreadCounts().listen((unreadCounts) {
+      if (mounted) {
+        setState(() {
+          _unreadCounts.clear();
+          _unreadCounts.addAll(unreadCounts);
+        });
+      }
+    });
   }
 }

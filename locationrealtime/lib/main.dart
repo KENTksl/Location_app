@@ -9,7 +9,20 @@ import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    print('✅ Firebase initialized successfully');
+    
+    // Test Firebase connection
+    final database = FirebaseDatabase.instance;
+    final testRef = database.ref('test_connection');
+    await testRef.set({'timestamp': DateTime.now().millisecondsSinceEpoch});
+    print('✅ Firebase Database connection test successful');
+    
+  } catch (e) {
+    print('❌ Firebase initialization error: $e');
+  }
 
   runApp(const MyApp());
 }
@@ -37,9 +50,16 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setOnlineStatus(bool isOnline) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseDatabase.instance.ref('online/${user.uid}').set(isOnline);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseDatabase.instance.ref('online/${user.uid}').set(isOnline);
+        print('✅ Set online status: $isOnline for user: ${user.uid}');
+      } else {
+        print('⚠️ No authenticated user found');
+      }
+    } catch (e) {
+      print('❌ Error setting online status: $e');
     }
   }
 

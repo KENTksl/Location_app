@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'map_page.dart';
 import 'friends_list_page.dart';
 import 'user_profile_page.dart';
+import '../services/call_notification_service.dart';
 
 class MainNavigationPage extends StatefulWidget {
   final String? focusFriendId;
@@ -60,11 +61,18 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+    
+    // Initialize call notification service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CallNotificationService().initialize(context);
+      CallNotificationService().checkForActiveCalls();
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    CallNotificationService().dispose();
     super.dispose();
   }
 

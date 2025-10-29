@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
 import '../theme.dart';
+import 'call_page.dart';
 import 'dart:io';
 import 'dart:async'; // Added for StreamSubscription
+import '../services/unread_message_service.dart';
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -32,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   String? _friendAvatarUrl;
   StreamSubscription? _myAvatarSubscription;
   StreamSubscription? _friendAvatarSubscription;
+  final UnreadMessageService _unreadMessageService = UnreadMessageService();
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _ChatPageState extends State<ChatPage> {
     _myEmail = FirebaseAuth.instance.currentUser?.email;
     _loadAvatarUrls();
     _listenMessages();
+    _markMessagesAsRead();
   }
 
   @override
@@ -335,7 +339,23 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppTheme.appBar(
         title: widget.friendEmail,
-        actions: [Icon(Icons.chat_bubble_outline_rounded, color: Colors.white)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.phone, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CallPage(
+                    friendId: widget.friendId,
+                    friendEmail: widget.friendEmail,
+                  ),
+                ),
+              );
+            },
+          ),
+          const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
@@ -439,5 +459,10 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+
+  // Đánh dấu tất cả tin nhắn là đã đọc
+  void _markMessagesAsRead() {
+    _unreadMessageService.markAllAsRead(widget.friendId);
   }
 }

@@ -60,6 +60,7 @@ class ChatService {
         'from': user.uid,
         'text': text,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'readBy': {user.uid: true}, // Người gửi tự động đã đọc
       });
 
       await ref.set(msgs);
