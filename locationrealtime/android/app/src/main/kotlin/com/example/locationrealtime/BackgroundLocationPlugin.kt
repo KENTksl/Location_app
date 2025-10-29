@@ -22,8 +22,8 @@ class BackgroundLocationPlugin: FlutterPlugin, MethodCallHandler {
 
     companion object {
         private const val CHANNEL = "background_location"
-        private const val NOTIFICATION_CHANNEL_ID = "background_location_channel"
-        private const val NOTIFICATION_ID = 1001
+        internal const val NOTIFICATION_CHANNEL_ID = "background_location_channel"
+        internal const val NOTIFICATION_ID = 1001
     }
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
