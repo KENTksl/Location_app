@@ -88,17 +88,24 @@ class CallService {
       RTCSessionDescription offer = await _peerConnection!.createOffer();
       await _peerConnection!.setLocalDescription(offer);
 
-      // Send call invitation to Firebase
+      // Get caller info
       final user = _auth.currentUser;
       if (user != null) {
+        // Get caller email from user profile
+        final userSnapshot = await _database.ref('users/${user.uid}').get();
+        final userData = userSnapshot.value as Map<dynamic, dynamic>?;
+        final callerEmail = userData?['email'] ?? user.email ?? 'Unknown';
+
+        // Send call invitation to Firebase with correct structure
         await _database.ref('calls/${user.uid}_$friendId').set({
-          'caller': user.uid,
-          'callee': friendId,
+          'callerId': user.uid,
+          'receiverId': friendId,
+          'callerEmail': callerEmail,
           'offer': {
             'type': offer.type,
             'sdp': offer.sdp,
           },
-          'status': 'calling',
+          'status': 'ringing',
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
       }
@@ -155,7 +162,7 @@ class CallService {
         final calls = snapshot.value as Map<dynamic, dynamic>;
         for (final callId in calls.keys) {
           final call = calls[callId] as Map<dynamic, dynamic>;
-          if (call['caller'] == user.uid || call['callee'] == user.uid) {
+          if (call['callerId'] == user.uid || call['receiverId'] == user.uid) {
             await _database.ref('calls/$callId/candidates').push().set({
               'candidate': candidate.candidate,
               'sdpMid': candidate.sdpMid,
@@ -176,7 +183,7 @@ class CallService {
 
     _database.ref('calls').onChildAdded.listen((event) {
       final call = event.snapshot.value as Map<dynamic, dynamic>;
-      if (call['callee'] == user.uid && call['status'] == 'calling') {
+      if (call['receiverId'] == user.uid && call['status'] == 'ringing') {
         onCallReceived?.call(event.snapshot.key!);
       }
     });
@@ -184,7 +191,7 @@ class CallService {
     // Listen for call answers
     _database.ref('calls').onChildChanged.listen((event) {
       final call = event.snapshot.value as Map<dynamic, dynamic>;
-      if (call['caller'] == user.uid && call['status'] == 'answered') {
+      if (call['callerId'] == user.uid && call['status'] == 'answered') {
         _handleCallAnswer(call['answer']);
       }
     });
@@ -240,7 +247,7 @@ class CallService {
         final calls = snapshot.value as Map<dynamic, dynamic>;
         for (final callId in calls.keys) {
           final call = calls[callId] as Map<dynamic, dynamic>;
-          if (call['caller'] == user.uid || call['callee'] == user.uid) {
+          if (call['callerId'] == user.uid || call['receiverId'] == user.uid) {
             await _database.ref('calls/$callId').remove();
             break;
           }

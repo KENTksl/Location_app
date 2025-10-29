@@ -56,7 +56,12 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
     };
 
     _callService.onCallEnded = () {
-      _endCall();
+      // Use post-frame callback to ensure safe execution
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _endCall();
+        }
+      });
     };
   }
 
@@ -98,9 +103,18 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
 
   void _endCall() {
     _callTimer?.cancel();
-    _pulseController.stop();
+    // Check if controller is still active before stopping
+    if (_pulseController.isAnimating) {
+      _pulseController.stop();
+    }
     _callService.endCall();
-    Navigator.pop(context);
+    
+    // Use post-frame callback for safe navigation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   void _toggleMute() {
@@ -325,6 +339,10 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _callTimer?.cancel();
+    // Stop animation before disposing if it's still running
+    if (_pulseController.isAnimating) {
+      _pulseController.stop();
+    }
     _pulseController.dispose();
     _localRenderer.dispose();
     _remoteRenderer.dispose();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../theme.dart';
@@ -28,11 +29,29 @@ class _IncomingCallPageState extends State<IncomingCallPage>
   late Animation<Offset> _slideAnimation;
 
   final CallService _callService = CallService();
+  StreamSubscription<DatabaseEvent>? _callStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
+    _listenForCallStatus();
+  }
+
+  void _listenForCallStatus() {
+    // Listen for changes to this specific call
+    final callRef = FirebaseDatabase.instance.ref('calls/${widget.callId}');
+    _callStatusSubscription = callRef.onValue.listen((event) {
+      if (!event.snapshot.exists && mounted) {
+        // Call was removed (cancelled by caller)
+        // Use a post-frame callback to ensure safe navigation
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
+    });
   }
 
   void _setupAnimations() {
@@ -293,6 +312,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
 
   @override
   void dispose() {
+    _callStatusSubscription?.cancel();
     _pulseController.dispose();
     _slideController.dispose();
     super.dispose();
