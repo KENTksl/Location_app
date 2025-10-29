@@ -70,6 +70,40 @@ class CallService {
     };
   }
 
+  // Create offer for outgoing call
+  Future<void> createOffer(String callId) async {
+    try {
+      print('📞 CallService: Creating offer for call $callId');
+      
+      await initialize();
+      
+      // Get local media stream
+      _localStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      
+      onLocalStream?.call(_localStream!);
+      _peerConnection?.addStream(_localStream!);
+
+      // Create offer
+      RTCSessionDescription offer = await _peerConnection!.createOffer();
+      await _peerConnection!.setLocalDescription(offer);
+
+      // Send offer to Firebase
+      await _database.ref('calls/$callId').update({
+        'offer': {
+          'type': offer.type,
+          'sdp': offer.sdp,
+        },
+      });
+      
+      print('✅ CallService: Offer created and sent to Firebase');
+    } catch (e) {
+      print('❌ CallService: Error creating offer: $e');
+    }
+  }
+
   // Start a call
   static Future<String?> startCall(String receiverId, String receiverEmail) async {
     try {

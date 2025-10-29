@@ -27,6 +27,7 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
   bool _isMuted = false;
   bool _isSpeakerOn = false;
   bool _isVideoOn = false;
+  bool _isOfferProcessed = false; // Add flag to prevent duplicate offer processing
   Timer? _callTimer;
   int _callDuration = 0;
   late AnimationController _pulseController;
@@ -113,24 +114,76 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
         final callData = snapshot.value as Map<dynamic, dynamic>;
         print('📞 CallPage: Call data retrieved: ${callData.keys}');
         
-        if (callData['offer'] != null) {
+        // Check if this is the receiver accepting the call
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null && callData['receiverId'] == currentUser.uid) {
+          print('📞 CallPage: This user is the receiver - waiting for offer from caller');
+          
+          // Listen for offer from caller
+          _listenForOffer(callId);
+          
+          setState(() {
+            _isCallActive = true;
+          });
+          _startCallTimer();
+          print('✅ CallPage: Successfully joined call as receiver');
+        } else if (callData['offer'] != null) {
+          // This is the caller or offer already exists
           final offer = Map<String, dynamic>.from(callData['offer'] as Map<dynamic, dynamic>);
-          print('📞 CallPage: Answering call with offer');
+          print('📞 CallPage: Answering call with existing offer');
           await _callService.answerCall(callId, offer);
           
           setState(() {
             _isCallActive = true;
           });
           _startCallTimer();
-          print('✅ CallPage: Successfully joined call');
+          print('✅ CallPage: Successfully joined call with existing offer');
         } else {
-          print('❌ CallPage: No offer found in call data');
+          print('📞 CallPage: No offer found, creating offer as caller');
+          await _createOfferForCall(callId);
         }
       } else {
         print('❌ CallPage: Call data not found');
       }
     } catch (e) {
       print('❌ CallPage: Error joining call: $e');
+    }
+  }
+
+  void _listenForOffer(String callId) {
+    print('📞 CallPage: Listening for offer from caller');
+    final callRef = FirebaseDatabase.instance.ref('calls/$callId');
+    
+    callRef.onValue.listen((event) async {
+      if (event.snapshot.exists) {
+        final callData = event.snapshot.value as Map<dynamic, dynamic>;
+        
+        if (callData['offer'] != null && !_isOfferProcessed) {
+          _isOfferProcessed = true;
+          print('📞 CallPage: Offer received from caller');
+          
+          final offer = Map<String, dynamic>.from(callData['offer'] as Map<dynamic, dynamic>);
+          await _callService.answerCall(callId, offer);
+          print('✅ CallPage: Successfully answered call');
+        }
+      }
+    });
+  }
+
+  Future<void> _createOfferForCall(String callId) async {
+    try {
+      print('📞 CallPage: Creating offer for call');
+      
+      // Use CallService to create offer
+      await _callService.createOffer(callId);
+      
+      setState(() {
+        _isCallActive = true;
+      });
+      _startCallTimer();
+      print('✅ CallPage: Offer creation completed');
+    } catch (e) {
+      print('❌ CallPage: Error creating offer: $e');
     }
   }
 
