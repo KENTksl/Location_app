@@ -71,9 +71,11 @@ class _MapPageState extends State<MapPage> {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadMyAvatar() async {
@@ -84,7 +86,7 @@ class _MapPageState extends State<MapPage> {
           'users/${user.uid}/avatarUrl',
         );
         final avatarSnap = await avatarRef.get();
-        if (avatarSnap.exists) {
+        if (avatarSnap.exists && mounted) {
           setState(() {
             _myAvatarUrl = avatarSnap.value as String?;
           });
@@ -117,9 +119,11 @@ class _MapPageState extends State<MapPage> {
       _autoRouteToFriend(widget.focusFriendId!, widget.focusFriendEmail);
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadFriendsData() async {
@@ -544,22 +548,26 @@ class _MapPageState extends State<MapPage> {
       final points = data['routes'][0]['overview_polyline']['points'];
       final polylinePoints = _decodePolyline(points);
       final distance = data['routes'][0]['legs'][0]['distance']['text'];
-      setState(() {
-        _routePolyline = Polyline(
-          polylineId: PolylineId('route_to_$friendId'),
-          color: Colors.blue,
-          width: 6,
-          points: polylinePoints,
-        );
-        _routeDistance = distance;
-        _selectedFriendId = friendId;
-      });
+      if (mounted) {
+        setState(() {
+          _routePolyline = Polyline(
+            polylineId: PolylineId('route_to_$friendId'),
+            color: Colors.blue,
+            width: 6,
+            points: polylinePoints,
+          );
+          _routeDistance = distance;
+          _selectedFriendId = friendId;
+        });
+      }
     } else {
-      setState(() {
-        _routePolyline = null;
-        _routeDistance = null;
-        _selectedFriendId = null;
-      });
+      if (mounted) {
+        setState(() {
+          _routePolyline = null;
+          _routeDistance = null;
+          _selectedFriendId = null;
+        });
+      }
     }
   }
 
@@ -604,11 +612,13 @@ class _MapPageState extends State<MapPage> {
   void _stopRouteTimer() {
     _routeTimer?.cancel();
     _routeTimer = null;
-    setState(() {
-      _routePolyline = null;
-      _routeDistance = null;
-      _selectedFriendId = null;
-    });
+    if (mounted) {
+      setState(() {
+        _routePolyline = null;
+        _routeDistance = null;
+        _selectedFriendId = null;
+      });
+    }
   }
 
   void _fitBounds() {
@@ -1110,14 +1120,8 @@ class _MapPageState extends State<MapPage> {
               width: 36,
               height: 36,
               fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[300],
-                child: Icon(Icons.person, size: 32, color: Colors.grey[600]),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[300],
-                child: Icon(Icons.person, size: 32, color: Colors.grey[600]),
-              ),
+              placeholder: (context, url) => _buildDefaultAvatar(email),
+              errorWidget: (context, url, error) => _buildDefaultAvatar(email),
             ),
           ),
         ),
