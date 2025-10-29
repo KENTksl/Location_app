@@ -79,32 +79,32 @@ class _IncomingCallPageState extends State<IncomingCallPage>
 
   Future<void> _acceptCall() async {
     try {
-      // Get call data from Firebase
-      final callRef = FirebaseDatabase.instance.ref('calls/${widget.callId}');
-      final snapshot = await callRef.get();
+      print('📞 IncomingCallPage: Accepting call ${widget.callId}');
       
-      if (snapshot.exists) {
-        final callData = snapshot.value as Map<dynamic, dynamic>;
-        final offer = Map<String, dynamic>.from(callData['offer'] as Map<dynamic, dynamic>);
-        
-        // Answer the call
-        await _callService.answerCall(widget.callId, offer);
-        
-        // Navigate to call page
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CallPage(
-                friendId: widget.callerId,
-                friendEmail: widget.callerEmail,
-              ),
+      // Update call status to accepted in Firebase
+      await FirebaseDatabase.instance.ref('calls/${widget.callId}').update({
+        'status': 'accepted',
+      });
+      
+      print('📞 IncomingCallPage: Call status updated to accepted');
+      
+      // Navigate to call page
+      if (mounted) {
+        print('📞 IncomingCallPage: Navigating to CallPage');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CallPage(
+              friendId: widget.callerId,
+              friendEmail: widget.callerEmail,
+              callId: widget.callId, // Pass callId to join existing call
             ),
-          );
-        }
+          ),
+        );
+        print('📞 IncomingCallPage: Navigation completed');
       }
     } catch (e) {
-      print('Error accepting call: $e');
+      print('❌ IncomingCallPage: Error accepting call: $e');
       _declineCall();
     }
   }

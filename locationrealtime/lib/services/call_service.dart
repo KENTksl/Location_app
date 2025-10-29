@@ -71,46 +71,49 @@ class CallService {
   }
 
   // Start a call
-  Future<void> startCall(String friendId) async {
+  static Future<String?> startCall(String receiverId, String receiverEmail) async {
     try {
-      await initialize();
-      
-      // Get local media stream
-      _localStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
-        'video': false, // Audio only for now
-      });
-      
-      onLocalStream?.call(_localStream!);
-      _peerConnection?.addStream(_localStream!);
-
-      // Create offer
-      RTCSessionDescription offer = await _peerConnection!.createOffer();
-      await _peerConnection!.setLocalDescription(offer);
-
-      // Get caller info
-      final user = _auth.currentUser;
-      if (user != null) {
-        // Get caller email from user profile
-        final userSnapshot = await _database.ref('users/${user.uid}').get();
-        final userData = userSnapshot.value as Map<dynamic, dynamic>?;
-        final callerEmail = userData?['email'] ?? user.email ?? 'Unknown';
-
-        // Send call invitation to Firebase with correct structure
-        await _database.ref('calls/${user.uid}_$friendId').set({
-          'callerId': user.uid,
-          'receiverId': friendId,
-          'callerEmail': callerEmail,
-          'offer': {
-            'type': offer.type,
-            'sdp': offer.sdp,
-          },
-          'status': 'ringing',
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        });
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ CallService: No authenticated user found');
+        return null;
       }
+
+      print('📞 CallService: Starting call...');
+      print('📞 CallService: Caller ID: ${user.uid}');
+      print('📞 CallService: Caller Email: ${user.email}');
+      print('📞 CallService: Receiver ID: $receiverId');
+      print('📞 CallService: Receiver Email: $receiverEmail');
+
+      final callId = FirebaseDatabase.instance.ref('calls').push().key;
+      if (callId == null) {
+        print('❌ CallService: Failed to generate call ID');
+        return null;
+      }
+
+      print('📞 CallService: Generated call ID: $callId');
+
+      final callData = {
+        'callId': callId,
+        'callerId': user.uid,
+        'callerEmail': user.email ?? 'Unknown',
+        'receiverId': receiverId,
+        'receiverEmail': receiverEmail,
+        'status': 'ringing',
+        'timestamp': ServerValue.timestamp,
+      };
+
+      print('📞 CallService: Call data to be sent: $callData');
+
+      await FirebaseDatabase.instance.ref('calls/$callId').set(callData);
+      
+      print('✅ CallService: Call data successfully sent to Firebase');
+      print('📞 CallService: Call started successfully with ID: $callId');
+      
+      return callId;
     } catch (e) {
-      print('Error starting call: $e');
+      print('❌ CallService: Error starting call: $e');
+      return null;
     }
   }
 

@@ -9,11 +9,13 @@ import 'dart:async';
 class CallPage extends StatefulWidget {
   final String friendId;
   final String friendEmail;
+  final String? callId; // Add callId parameter for existing calls
 
   const CallPage({
     super.key,
     required this.friendId,
     required this.friendEmail,
+    this.callId, // Optional callId for joining existing calls
   });
 
   @override
@@ -37,9 +39,9 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _initializeCall();
     _setupAnimations();
     _setupCallService();
+    _initializeCall();
   }
 
   void _setupCallService() {
@@ -76,13 +78,60 @@ class _CallPageState extends State<CallPage> with TickerProviderStateMixin {
     _pulseController.repeat(reverse: true);
   }
 
-  void _initializeCall() {
+  void _initializeCall() async {
+    print('📞 CallPage: Initializing call for ${widget.friendEmail}');
+    
     // Initialize WebRTC renderers
-    _localRenderer.initialize();
-    _remoteRenderer.initialize();
+    await _localRenderer.initialize();
+    await _remoteRenderer.initialize();
+    
+    print('📞 CallPage: Renderers initialized');
 
-    // Start the call
-    _callService.startCall(widget.friendId);
+    if (widget.callId != null) {
+      // Join existing call (when accepting incoming call)
+      print('📞 CallPage: Joining existing call ${widget.callId}');
+      await _joinExistingCall(widget.callId!);
+    } else {
+      // Start new call
+      print('📞 CallPage: Starting new call');
+      final callId = await CallService.startCall(widget.friendId, widget.friendEmail);
+      if (callId != null) {
+        print('✅ CallPage: Call started successfully with ID: $callId');
+      } else {
+        print('❌ CallPage: Failed to start call');
+      }
+    }
+  }
+
+  Future<void> _joinExistingCall(String callId) async {
+    try {
+      print('📞 CallPage: Getting call data from Firebase');
+      final callRef = FirebaseDatabase.instance.ref('calls/$callId');
+      final snapshot = await callRef.get();
+      
+      if (snapshot.exists) {
+        final callData = snapshot.value as Map<dynamic, dynamic>;
+        print('📞 CallPage: Call data retrieved: ${callData.keys}');
+        
+        if (callData['offer'] != null) {
+          final offer = Map<String, dynamic>.from(callData['offer'] as Map<dynamic, dynamic>);
+          print('📞 CallPage: Answering call with offer');
+          await _callService.answerCall(callId, offer);
+          
+          setState(() {
+            _isCallActive = true;
+          });
+          _startCallTimer();
+          print('✅ CallPage: Successfully joined call');
+        } else {
+          print('❌ CallPage: No offer found in call data');
+        }
+      } else {
+        print('❌ CallPage: Call data not found');
+      }
+    } catch (e) {
+      print('❌ CallPage: Error joining call: $e');
+    }
   }
 
   void _startCallTimer() {

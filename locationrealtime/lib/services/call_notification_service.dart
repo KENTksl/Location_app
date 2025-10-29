@@ -11,6 +11,7 @@ class CallNotificationService {
   CallNotificationService._internal();
 
   StreamSubscription<DatabaseEvent>? _callSubscription;
+  StreamSubscription<DatabaseEvent>? _callAddedSubscription;
   StreamSubscription<DatabaseEvent>? _callRemovedSubscription;
   BuildContext? _context;
   String? _currentCallId;
@@ -18,63 +19,67 @@ class CallNotificationService {
 
   void initialize(BuildContext context) {
     _context = context;
+    print('🔔 CallNotificationService: Initializing...');
     _listenForIncomingCalls();
+    print('🔔 CallNotificationService: Initialized and listening for calls');
   }
 
   void _listenForIncomingCalls() {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('❌ CallNotificationService: No authenticated user found');
+      return;
+    }
 
-    final callsRef = FirebaseDatabase.instance.ref('calls');
+    print('🔔 CallNotificationService: Setting up listener for user: ${user.uid}');
     
-    // Listen for new calls
-    _callSubscription = callsRef.onChildAdded.listen((event) {
+    _callAddedSubscription = FirebaseDatabase.instance
+        .ref('calls')
+        .onChildAdded
+        .listen((event) {
+      print('🔔 CallNotificationService: New call detected - ${event.snapshot.key}');
+      
       final callData = event.snapshot.value as Map<dynamic, dynamic>?;
-      if (callData == null) return;
+      if (callData == null) {
+        print('❌ CallNotificationService: Call data is null');
+        return;
+      }
 
+      print('🔔 CallNotificationService: Call data: $callData');
+      
       final receiverId = callData['receiverId'] as String?;
-      final callerId = callData['callerId'] as String?;
-      final callerEmail = callData['callerEmail'] as String?;
+      final currentUserId = user.uid;
       final status = callData['status'] as String?;
 
-      // Check if this call is for the current user and is still ringing
-      if (receiverId == currentUser.uid && 
-          status == 'ringing' && 
-          callerId != null &&
-          callerEmail != null &&
-          !_isNavigating) {
+      print('🔔 CallNotificationService: receiverId=$receiverId, currentUserId=$currentUserId, status=$status');
+
+      if (receiverId == currentUserId && status == 'ringing') {
+        print('🔔 CallNotificationService: Incoming call for current user - navigating to IncomingCallPage');
         
-        // Store current call ID
-        _currentCallId = event.snapshot.key!;
-        _isNavigating = true;
-        
-        // Use post-frame callback for safe navigation
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final navigatorState = MyApp.navigatorKey.currentState;
-          if (navigatorState != null && navigatorState.canPop()) {
-            navigatorState.push(
-              MaterialPageRoute(
-                builder: (context) => IncomingCallPage(
-                  callId: event.snapshot.key!,
-                  callerEmail: callerEmail,
-                  callerId: callerId,
-                ),
-              ),
-            ).then((_) {
-              // Clear current call ID and navigation flag when page is dismissed
-              _currentCallId = null;
-              _isNavigating = false;
-            });
-          } else {
-            // Reset navigation flag if we can't navigate
-            _isNavigating = false;
-          }
-        });
+        if (_context != null) {
+          Navigator.of(_context!).pushNamed(
+            '/incoming_call',
+            arguments: {
+              'callId': event.snapshot.key,
+              'callData': callData,
+            },
+          );
+          print('🔔 CallNotificationService: Navigation completed');
+        } else {
+          print('❌ CallNotificationService: Context is null, cannot navigate');
+        }
+      } else {
+        print('🔔 CallNotificationService: Call not for current user or not ringing');
       }
+    }, onError: (error) {
+      print('❌ CallNotificationService: Error listening for calls: $error');
     });
 
     // Listen for call removals (when caller cancels)
-    _callRemovedSubscription = callsRef.onChildRemoved.listen((event) {
+    _callRemovedSubscription = FirebaseDatabase.instance
+        .ref('calls')
+        .onChildRemoved
+        .listen((event) {
       final callId = event.snapshot.key;
       if (callId != null && callId == _currentCallId) {
         // Clear the current call ID when call is removed

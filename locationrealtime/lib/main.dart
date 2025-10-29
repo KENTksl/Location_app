@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation_page.dart';
+import 'pages/incoming_call_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'theme.dart';
@@ -73,6 +74,23 @@ class _MyAppState extends State<MyApp> {
       darkTheme: _buildDarkTheme(),
       themeMode: ThemeMode.light,
       home: _getHomeWidget(),
+      routes: {
+        '/incoming_call': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          if (args != null) {
+            final callId = args['callId'] as String;
+            final callData = args['callData'] as Map<dynamic, dynamic>;
+            return IncomingCallPage(
+              callId: callId,
+              callerEmail: callData['callerEmail'] as String,
+              callerId: callData['callerId'] as String,
+            );
+          }
+          return const Scaffold(
+            body: Center(child: Text('Invalid call data')),
+          );
+        },
+      },
     );
   }
 
