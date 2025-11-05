@@ -19,12 +19,21 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   LocationHistoryStats? _stats;
   bool _isLoading = true;
   String _selectedFilter = 'all'; // all, week, month, year
+  int? _retentionDays; // null: tắt tự xóa
 
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? LocationHistoryService();
     _loadData();
+    _loadRetention();
+  }
+
+  Future<void> _loadRetention() async {
+    final days = await _service.getRetentionDays();
+    setState(() {
+      _retentionDays = days;
+    });
   }
 
   Future<void> _loadData() async {
@@ -102,47 +111,173 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
+          child: CustomScrollView(
+            slivers: [
               // Header
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Text(
-                      'Lịch sử di chuyển',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    ),
-                  ],
+                      const Text(
+                        'Lịch sử di chuyển',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white),
+                        onPressed: _showRetentionSettings,
+                        tooltip: 'Cài đặt tự xóa',
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
               // Stats Card
-              if (_stats != null) _buildStatsCard(),
+              if (_stats != null)
+                SliverToBoxAdapter(child: _buildStatsCard()),
 
               // Filter Buttons
-              _buildFilterButtons(),
+              SliverToBoxAdapter(child: _buildFilterButtons()),
 
-              // Routes List
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                    : _buildRoutesList(),
-              ),
+              // Routes Sliver (list/empty/loading)
+              _buildRoutesSliver(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showRetentionSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        final options = <Map<String, dynamic>>[
+          {'label': '7 ngày', 'days': 7},
+          {'label': '1 tháng', 'days': 30},
+          {'label': '3 tháng', 'days': 90},
+          {'label': '6 tháng', 'days': 180},
+          {'label': '12 tháng', 'days': 365},
+          {'label': 'Tùy chỉnh', 'days': null},
+        ];
+
+        int? selectedDays = _retentionDays;
+        final TextEditingController customController = TextEditingController(
+          text: selectedDays == null
+              ? (_retentionDays?.toString() ?? '')
+              : '',
+        );
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isCustom = selectedDays == null;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tự động xóa lộ trình',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ...options.map((opt) => RadioListTile<int?>(
+                        title: Text(opt['label'] as String),
+                        value: opt['days'] as int?,
+                        groupValue: selectedDays,
+                        onChanged: (value) {
+                          setModalState(() {
+                            selectedDays = value;
+                            if (value != null) {
+                              customController.text = '';
+                            }
+                          });
+                        },
+                      )),
+                  if (selectedDays == null) ...[
+                    const SizedBox(height: 8),
+                    const Text('Nhập số ngày giữ lại (ví dụ: 45):'),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: customController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: 'Số ngày',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {});
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Đóng'),
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: () async {
+                          int? daysToSave = selectedDays;
+                          if (daysToSave == null) {
+                            final parsed = int.tryParse(customController.text);
+                            if (parsed == null || parsed <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Vui lòng nhập số ngày hợp lệ'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            daysToSave = parsed;
+                          }
+
+                          await _service.setRetentionDays(daysToSave);
+                          await _service.purgeOldRoutes(days: daysToSave);
+                          await _loadRetention();
+                          await _loadData();
+                          if (context.mounted) Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã cập nhật cài đặt tự xóa'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        child: const Text('Lưu'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -286,39 +421,58 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     );
   }
 
-  Widget _buildRoutesList() {
-    if (_filteredRoutes.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history, size: 64, color: Colors.white),
-            SizedBox(height: 16),
-            Text(
-              'Chưa có lịch sử di chuyển',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Các lộ trình của bạn sẽ xuất hiện ở đây',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
-            ),
-          ],
+  Widget _buildRoutesSliver() {
+    if (_isLoading) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _filteredRoutes.length,
-      itemBuilder: (context, index) {
-        final route = _filteredRoutes[index];
-        return _buildRouteCard(route);
-      },
+    if (_filteredRoutes.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.history, size: 64, color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  'Chưa có lịch sử di chuyển',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Các lộ trình của bạn sẽ xuất hiện ở đây',
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final route = _filteredRoutes[index];
+          return _buildRouteCard(route);
+        },
+        childCount: _filteredRoutes.length,
+      ),
     );
   }
 

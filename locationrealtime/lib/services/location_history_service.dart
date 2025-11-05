@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ class LocationHistoryService {
   static const String _routesKey = 'location_routes';
   static const String _currentRouteKey = 'current_route';
   static const String _statsKey = 'location_stats';
+  static const String _retentionDaysKey = 'route_retention_days';
 
   // Validation constants
   static const double _minDistance = 1.0; // 1 meter minimum
@@ -19,11 +21,26 @@ class LocationHistoryService {
   final FirebaseDatabase _database;
   final FirebaseAuth _auth;
 
-  LocationHistoryService({
-    FirebaseAuth? auth,
-    FirebaseDatabase? database,
-  }) : _auth = auth ?? FirebaseAuth.instance,
+  LocationHistoryService({FirebaseAuth? auth, FirebaseDatabase? database})
+      : _auth = auth ?? FirebaseAuth.instance,
         _database = database ?? FirebaseDatabase.instance;
+
+  // Thiết lập số ngày giữ lại lộ trình (null để tắt tự xóa)
+  Future<void> setRetentionDays(int? days) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (days == null) {
+      await prefs.remove(_retentionDaysKey);
+    } else {
+      await prefs.setInt(_retentionDaysKey, days);
+    }
+  }
+
+  // Lấy số ngày giữ lại hiện tại (null nếu chưa cài đặt)
+  Future<int?> getRetentionDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(_retentionDaysKey)) return null;
+    return prefs.getInt(_retentionDaysKey);
+  }
 
   // Lưu route vào local storage
   Future<void> saveRouteLocally(LocationRoute route) async {
@@ -33,12 +50,14 @@ class LocationHistoryService {
     // Thêm route mới
     routesJson.add(jsonEncode(route.toJson()));
 
-    // Giữ tối đa 100 routes gần nhất
-    if (routesJson.length > 100) {
+    // Giữ tối đa 50 routes gần nhất
+    if (routesJson.length > 50) {
       routesJson.removeAt(0);
     }
 
     await prefs.setStringList(_routesKey, routesJson);
+    // Áp dụng retention sau khi lưu
+    await purgeOldRoutes();
   }
 
   // Lấy tất cả routes từ local storage
@@ -51,6 +70,56 @@ class LocationHistoryService {
         .toList();
   }
 
+  // Tự động xóa các lộ trình quá hạn theo retention (local + Firebase)
+  Future<void> purgeOldRoutes({int? days}) async {
+    final effectiveDays = days ?? await getRetentionDays();
+    if (effectiveDays == null || effectiveDays <= 0) return;
+
+    final cutoff = DateTime.now().subtract(Duration(days: effectiveDays));
+
+    // Purge local
+    final prefs = await SharedPreferences.getInstance();
+    final routesJson = prefs.getStringList(_routesKey) ?? [];
+    final filtered = <String>[];
+    for (final jsonStr in routesJson) {
+      try {
+        final route = LocationRoute.fromJson(jsonDecode(jsonStr));
+        final endOrStart = route.endTime ?? route.startTime;
+        if (endOrStart.isAfter(cutoff)) {
+          filtered.add(jsonStr);
+        }
+      } catch (_) {
+        // Nếu parse lỗi, giữ lại để tránh mất dữ liệu ngoài ý muốn
+        filtered.add(jsonStr);
+      }
+    }
+    await prefs.setStringList(_routesKey, filtered);
+
+    // Purge Firebase
+    final user = _auth.currentUser;
+    if (user != null) {
+      final ref = _database.ref('users/${user.uid}/locationHistory');
+      final snap = await ref.get();
+      if (snap.exists) {
+        for (final child in snap.children) {
+          try {
+            final data = Map<String, dynamic>.from(child.value as Map);
+            final route = LocationRoute.fromJson(data);
+            final endOrStart = route.endTime ?? route.startTime;
+            if (endOrStart.isBefore(cutoff)) {
+              final key = child.key;
+              if (key != null) {
+                await ref.child(key).remove();
+              }
+            }
+          } catch (e) {
+            // Bỏ qua lỗi parse
+          }
+        }
+      }
+    }
+  }
+
   // Lưu route vào Firebase
   Future<void> saveRouteToFirebase(LocationRoute route) async {
     final user = _auth.currentUser;
@@ -61,68 +130,102 @@ class LocationHistoryService {
         .set(route.toJson());
   }
 
-  // Lấy routes từ Firebase
+  // Lấy routes từ Firebase (kèm fallback legacy)
   Future<List<LocationRoute>> getRoutesFromFirebase() async {
     final user = _auth.currentUser;
     if (user == null) return [];
 
-    final snapshot = await _database
-        .ref('users/${user.uid}/locationHistory')
-        .get();
+    // Primary path
+    final primaryRef = _database.ref('users/${user.uid}/locationHistory');
+    final primarySnap = await primaryRef.get();
 
-    if (!snapshot.exists) return [];
+    List<LocationRoute> routes = [];
+    if (primarySnap.exists) {
+      for (final child in primarySnap.children) {
+        try {
+          final route = LocationRoute.fromJson(
+            Map<String, dynamic>.from(child.value as Map),
+          );
+          routes.add(route);
+        } catch (e) {
+          print('Error parsing route (primary): $e');
+        }
+      }
+    }
 
-    final routes = <LocationRoute>[];
-    for (final child in snapshot.children) {
-      try {
-        final route = LocationRoute.fromJson(
-          Map<String, dynamic>.from(child.value as Map),
-        );
-        routes.add(route);
-      } catch (e) {
-        print('Error parsing route: $e');
+    // Fallback to legacy path if primary empty
+    if (routes.isEmpty) {
+      final legacyRef = _database.ref('history/${user.uid}');
+      final legacySnap = await legacyRef.get();
+      if (legacySnap.exists) {
+        for (final child in legacySnap.children) {
+          try {
+            final route = LocationRoute.fromJson(
+              Map<String, dynamic>.from(child.value as Map),
+            );
+            routes.add(route);
+          } catch (e) {
+            print('Error parsing route (legacy): $e');
+          }
+        }
       }
     }
 
     return routes;
   }
 
+  // Kiểm tra permission và service
+  Future<bool> checkLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
+  }
+
   // Tính khoảng cách giữa 2 điểm
-  double calculateDistance(LocationPoint point1, LocationPoint point2) {
-    return Geolocator.distanceBetween(
-          point1.latitude,
-          point1.longitude,
-          point2.latitude,
-          point2.longitude,
-        ) /
-        1000; // Convert to km
+  double _distanceBetween(LocationPoint a, LocationPoint b) {
+    const double earthRadius = 6371e3; // meters
+    final double lat1 = a.latitude * (3.141592653589793 / 180);
+    final double lat2 = b.latitude * (3.141592653589793 / 180);
+    final double dLat = (b.latitude - a.latitude) * (3.141592653589793 / 180);
+    final double dLon = (b.longitude - a.longitude) * (3.141592653589793 / 180);
+
+    final double h =
+        (1 - (cos(dLat) + cos(lat1) * cos(lat2) * (1 - cos(dLon)))) / 2;
+    final double c = 2 * asin(min(1, sqrt(h)));
+    return earthRadius * c / 1000; // km
   }
 
   // Tính tổng khoảng cách của route
   double calculateTotalDistance(List<LocationPoint> points) {
     if (points.length < 2) return 0;
-
-    double totalDistance = 0;
-    for (int i = 0; i < points.length - 1; i++) {
-      totalDistance += calculateDistance(points[i], points[i + 1]);
+    double total = 0;
+    for (int i = 1; i < points.length; i++) {
+      total += _distanceBetween(points[i - 1], points[i]);
     }
-    return totalDistance;
+    return total;
+  }
+
+  // Hàm công khai tính khoảng cách giữa hai điểm (km)
+  double calculateDistance(LocationPoint point1, LocationPoint point2) {
+    return _distanceBetween(point1, point2);
   }
 
   // Kiểm tra route có hợp lệ không
   bool isValidRoute(List<LocationPoint> points) {
     if (points.length < 2) return false;
-
     final totalDistance = calculateTotalDistance(points);
-    final duration = points.last.timestamp.difference(points.first.timestamp);
-
-    // Kiểm tra khoảng cách tối thiểu (1m = 0.001km)
-    if (totalDistance < _minDistance / 1000) return false;
-
-    // Kiểm tra thời gian tối thiểu (3s)
-    if (duration < _minDuration) return false;
-
-    return true;
+    final totalDuration = points.last.timestamp.difference(points.first.timestamp);
+    // totalDistance is in km; _minDistance is in meters
+    return totalDistance >= (_minDistance / 1000) && totalDuration >= _minDuration;
   }
 
   // Tạo route mới
@@ -146,6 +249,43 @@ class LocationHistoryService {
       totalDuration: totalDuration,
       description: description,
     );
+  }
+
+  // Lấy vị trí hiện tại với error handling
+  Future<LocationPoint?> getCurrentLocationPoint() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      return LocationPoint(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        timestamp: DateTime.now(),
+        accuracy: position.accuracy,
+        speed: position.speed,
+        altitude: position.altitude,
+      );
+    } catch (e) {
+      print('Error getting current location: $e');
+      return null;
+    }
+  }
+
+  // Kiểm tra có nên thêm điểm mới vào route không
+  bool shouldAddPoint(
+    LocationPoint newPoint,
+    List<LocationPoint> existingPoints,
+  ) {
+    if (existingPoints.isEmpty) return true;
+
+    final lastPoint = existingPoints.last;
+    final distanceKm = _distanceBetween(lastPoint, newPoint);
+    final timeDiff = newPoint.timestamp.difference(lastPoint.timestamp);
+
+    // Thêm nếu khoảng cách > 1m (0.001 km) hoặc thời gian > 10s
+    return distanceKm > (_minDistance / 1000) || timeDiff.inSeconds > 10;
   }
 
   // Lưu current route
@@ -174,57 +314,24 @@ class LocationHistoryService {
     await prefs.remove(_currentRouteKey);
   }
 
-  // Kiểm tra permission và service
-  Future<bool> checkLocationPermission() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return false;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    return permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always;
+  // Lưu thống kê
+  Future<void> saveStats(LocationHistoryStats stats) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_statsKey, jsonEncode(stats.toJson()));
   }
 
-  // Lấy vị trí hiện tại với error handling
-  Future<LocationPoint?> getCurrentLocationPoint() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
+  // Lấy thống kê
+  Future<LocationHistoryStats?> getStats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final statsJson = prefs.getString(_statsKey);
+    if (statsJson == null) return null;
 
-      return LocationPoint(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timestamp: DateTime.now(),
-        accuracy: position.accuracy,
-        speed: position.speed,
-        altitude: position.altitude,
-      );
+    try {
+      return LocationHistoryStats.fromJson(jsonDecode(statsJson));
     } catch (e) {
-      print('Error getting current location: $e');
+      print('Error parsing stats: $e');
       return null;
     }
-  }
-
-  // Kiểm tra xem có nên thêm điểm mới không
-  bool shouldAddPoint(
-    LocationPoint newPoint,
-    List<LocationPoint> existingPoints,
-  ) {
-    if (existingPoints.isEmpty) return true;
-
-    final lastPoint = existingPoints.last;
-    final distance = calculateDistance(lastPoint, newPoint);
-    final timeDiff = newPoint.timestamp.difference(lastPoint.timestamp);
-
-    // Thêm điểm nếu khoảng cách > 1m hoặc thời gian > 10s
-    return distance > _minDistance / 1000 || timeDiff.inSeconds > 10;
   }
 
   // Tính toán stats
@@ -268,26 +375,6 @@ class LocationHistoryService {
       lastActivity: lastActivity,
       dailyStats: dailyStats,
     );
-  }
-
-  // Lưu stats
-  Future<void> saveStats(LocationHistoryStats stats) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_statsKey, jsonEncode(stats.toJson()));
-  }
-
-  // Lấy stats
-  Future<LocationHistoryStats?> getStats() async {
-    final prefs = await SharedPreferences.getInstance();
-    final statsJson = prefs.getString(_statsKey);
-    if (statsJson == null) return null;
-
-    try {
-      return LocationHistoryStats.fromJson(jsonDecode(statsJson));
-    } catch (e) {
-      print('Error parsing stats: $e');
-      return null;
-    }
   }
 
   // Tạo tên route tự động

@@ -1684,7 +1684,7 @@ class _MapPageState extends State<MapPage> {
         await _locationHistoryService.saveCurrentRoute(_currentRoute!);
       } else {
         _currentRoute = _locationHistoryService.createRoute(
-          name: 'Lộ trình đang ghi',
+          name: 'Lộ trình đã ghi',
           points: _currentRoutePoints,
         );
         await _locationHistoryService.saveCurrentRoute(_currentRoute!);

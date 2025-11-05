@@ -1,5 +1,42 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+// Helper converters to make JSON parsing resilient across int/double/string
+double _asDouble(dynamic v) {
+  if (v == null) return 0.0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString()) ?? 0.0;
+}
+
+double? _asNullableDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString());
+}
+
+int _asInt(dynamic v) {
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? 0;
+}
+
+DateTime _asDateTime(dynamic v) {
+  if (v is int) {
+    return DateTime.fromMillisecondsSinceEpoch(v);
+  }
+  if (v is String) {
+    // Try ISO8601 first, then treat as milliseconds string
+    try {
+      return DateTime.parse(v);
+    } catch (_) {
+      final ms = int.tryParse(v);
+      if (ms != null) {
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+    }
+  }
+  throw ArgumentError('Invalid timestamp value: $v');
+}
+
 class LocationPoint {
   final double latitude;
   final double longitude;
@@ -30,12 +67,12 @@ class LocationPoint {
 
   factory LocationPoint.fromJson(Map<String, dynamic> json) {
     return LocationPoint(
-      latitude: json['latitude'] as double,
-      longitude: json['longitude'] as double,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
-      accuracy: json['accuracy'] as double?,
-      speed: json['speed'] as double?,
-      altitude: json['altitude'] as double?,
+      latitude: _asDouble(json['latitude']),
+      longitude: _asDouble(json['longitude']),
+      timestamp: _asDateTime(json['timestamp']),
+      accuracy: _asNullableDouble(json['accuracy']),
+      speed: _asNullableDouble(json['speed']),
+      altitude: _asNullableDouble(json['altitude']),
     );
   }
 
@@ -82,20 +119,30 @@ class LocationRoute {
   }
 
   factory LocationRoute.fromJson(Map<String, dynamic> json) {
+    final rawPoints = json['points'];
+    final pointsList = (rawPoints is List)
+        ? rawPoints
+            .map((p) => LocationPoint.fromJson(
+                  Map<String, dynamic>.from(p as Map),
+                ))
+            .toList()
+        : <LocationPoint>[];
+
+    final rawMetadata = json['metadata'];
+    final metadataMap = rawMetadata is Map
+        ? Map<String, dynamic>.from(rawMetadata)
+        : null;
+
     return LocationRoute(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      points: (json['points'] as List)
-          .map((point) => LocationPoint.fromJson(point as Map<String, dynamic>))
-          .toList(),
-      startTime: DateTime.fromMillisecondsSinceEpoch(json['startTime'] as int),
-      endTime: json['endTime'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['endTime'] as int)
-          : null,
-      totalDistance: json['totalDistance'] as double,
-      totalDuration: Duration(milliseconds: json['totalDuration'] as int),
-      description: json['description'] as String?,
-      metadata: json['metadata'] as Map<String, dynamic>?,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      points: pointsList,
+      startTime: _asDateTime(json['startTime']),
+      endTime: json['endTime'] != null ? _asDateTime(json['endTime']) : null,
+      totalDistance: _asDouble(json['totalDistance']),
+      totalDuration: Duration(milliseconds: _asInt(json['totalDuration'])),
+      description: json['description']?.toString(),
+      metadata: metadataMap,
     );
   }
 
@@ -138,15 +185,19 @@ class LocationHistoryStats {
   }
 
   factory LocationHistoryStats.fromJson(Map<String, dynamic> json) {
+    final rawDaily = json['dailyStats'];
+    final daily = rawDaily is Map
+        ? rawDaily.map((key, value) => MapEntry(key.toString(), _asInt(value)))
+        : <String, int>{};
+
     return LocationHistoryStats(
-      totalRoutes: json['totalRoutes'] as int,
-      totalDistance: json['totalDistance'] as double,
-      totalDuration: Duration(milliseconds: json['totalDuration'] as int),
-      averageSpeed: json['averageSpeed'] as double,
-      lastActivity: json['lastActivity'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(json['lastActivity'] as int)
-          : null,
-      dailyStats: Map<String, int>.from(json['dailyStats'] as Map),
+      totalRoutes: _asInt(json['totalRoutes']),
+      totalDistance: _asDouble(json['totalDistance']),
+      totalDuration: Duration(milliseconds: _asInt(json['totalDuration'])),
+      averageSpeed: _asDouble(json['averageSpeed']),
+      lastActivity:
+          json['lastActivity'] != null ? _asDateTime(json['lastActivity']) : null,
+      dailyStats: daily,
     );
   }
-} 
+}
