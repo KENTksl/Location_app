@@ -9,6 +9,8 @@ import 'call_page.dart';
 import 'dart:io';
 import 'dart:async'; // Added for StreamSubscription
 import '../services/unread_message_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -34,7 +36,14 @@ class _ChatPageState extends State<ChatPage> {
   String? _friendAvatarUrl;
   StreamSubscription? _myAvatarSubscription;
   StreamSubscription? _friendAvatarSubscription;
+  // Presence fields
+  StreamSubscription? _friendOnlineSubscription;
+  StreamSubscription? _friendLastSeenSubscription;
+  bool _isFriendOnline = false;
+  int? _friendLastSeenMs;
+  String _presenceSubtitle = '';
   final UnreadMessageService _unreadMessageService = UnreadMessageService();
+  String _displayName = '';
 
   @override
   void initState() {
@@ -47,6 +56,8 @@ class _ChatPageState extends State<ChatPage> {
     _loadAvatarUrls();
     _listenMessages();
     _markMessagesAsRead();
+    _loadFriendNickname();
+    _listenFriendPresence();
   }
 
   @override
@@ -54,7 +65,107 @@ class _ChatPageState extends State<ChatPage> {
     _controller.dispose();
     _myAvatarSubscription?.cancel();
     _friendAvatarSubscription?.cancel();
+    _friendOnlineSubscription?.cancel();
+    _friendLastSeenSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadFriendNickname() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('friend_nicknames');
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final Map<String, dynamic> map = jsonDecode(jsonStr);
+        final nickname = map[widget.friendId];
+        if (nickname is String && nickname.trim().isNotEmpty) {
+          _displayName = nickname.trim();
+        }
+      }
+    } catch (_) {
+      // Ignore errors, fallback will be email
+    }
+    if (_displayName.isEmpty) {
+      final email = widget.friendEmail;
+      _displayName = email.isNotEmpty ? email.split('@').first : widget.friendId;
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _listenFriendPresence() async {
+    // Listen to online status
+    final onlineRef = FirebaseDatabase.instance.ref('online/${widget.friendId}');
+    _friendOnlineSubscription = onlineRef.onValue.listen((event) {
+      final val = event.snapshot.value;
+      final online = val == true;
+      setState(() {
+        _isFriendOnline = online;
+        _presenceSubtitle = online
+            ? 'Đang hoạt động'
+            : _formatLastSeen(_friendLastSeenMs);
+      });
+    });
+
+    // Listen to last seen timestamp
+    final lastSeenRef = FirebaseDatabase.instance.ref('lastSeen/${widget.friendId}');
+    _friendLastSeenSubscription = lastSeenRef.onValue.listen((event) {
+      final v = event.snapshot.value;
+      int? ms;
+      if (v is int) {
+        ms = v;
+      } else if (v is num) {
+        ms = v.toInt();
+      } else if (v is String) {
+        ms = int.tryParse(v);
+      }
+      if (ms != null) {
+        setState(() {
+          _friendLastSeenMs = ms;
+          if (!_isFriendOnline) {
+            _presenceSubtitle = _formatLastSeen(ms);
+          }
+        });
+      }
+    });
+
+    // Prime initial values
+    try {
+      final onlineSnap = await onlineRef.get();
+      final online = onlineSnap.value == true;
+      final lastSeenSnap = await lastSeenRef.get();
+      int? ms;
+      final v = lastSeenSnap.value;
+      if (v is int) {
+        ms = v;
+      } else if (v is num) {
+        ms = v.toInt();
+      } else if (v is String) {
+        ms = int.tryParse(v);
+      }
+      setState(() {
+        _isFriendOnline = online;
+        _friendLastSeenMs = ms;
+        _presenceSubtitle = online ? 'Đang hoạt động' : _formatLastSeen(ms);
+      });
+    } catch (_) {}
+  }
+
+  String _formatLastSeen(int? ms) {
+    if (ms == null) return 'Hoạt động lúc không xác định';
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dayKey = DateTime(dt.year, dt.month, dt.day);
+
+    final timeStr = DateFormat('HH:mm').format(dt);
+    if (dayKey == today) {
+      return 'Hoạt động lúc $timeStr';
+    } else if (dayKey == yesterday) {
+      return 'Hoạt động hôm qua, $timeStr';
+    } else {
+      final dateStr = DateFormat('dd/MM/yyyy').format(dt);
+      return 'Hoạt động $timeStr, $dateStr';
+    }
   }
 
   String _getChatId(String uid1, String uid2) {
@@ -176,7 +287,9 @@ class _ChatPageState extends State<ChatPage> {
         : '';
 
     final avatarUrl = isMe ? _myAvatarUrl : _friendAvatarUrl;
-    final email = isMe ? (_myEmail ?? '') : widget.friendEmail;
+    final label = isMe
+        ? (_myEmail ?? '')
+        : (_displayName.isNotEmpty ? _displayName : widget.friendEmail);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -189,7 +302,7 @@ class _ChatPageState extends State<ChatPage> {
           if (!isMe)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: _buildAvatarWidget(avatarUrl, email),
+              child: _buildAvatarWidget(avatarUrl, label),
             ),
           Flexible(
             child: Column(
@@ -262,7 +375,7 @@ class _ChatPageState extends State<ChatPage> {
           if (isMe)
             Padding(
               padding: const EdgeInsets.only(left: 6),
-              child: _buildAvatarWidget(avatarUrl, email),
+              child: _buildAvatarWidget(avatarUrl, label),
             ),
         ],
       ),
@@ -271,7 +384,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildAvatarWidget(
     String? avatarUrl,
-    String email, {
+    String label, {
     double radius = 16,
   }) {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -288,9 +401,9 @@ class _ChatPageState extends State<ChatPage> {
             width: radius * 2,
             height: radius * 2,
             fit: BoxFit.cover,
-            placeholder: (context, url) => _buildDefaultAvatar(email, radius),
+            placeholder: (context, url) => _buildDefaultAvatar(label, radius),
             errorWidget: (context, url, error) =>
-                _buildDefaultAvatar(email, radius),
+                _buildDefaultAvatar(label, radius),
           ),
         );
       } else {
@@ -303,15 +416,15 @@ class _ChatPageState extends State<ChatPage> {
             height: radius * 2,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) =>
-                _buildDefaultAvatar(email, radius),
+                _buildDefaultAvatar(label, radius),
           ),
         );
       }
     }
-    return _buildDefaultAvatar(email, radius);
+    return _buildDefaultAvatar(label, radius);
   }
 
-  Widget _buildDefaultAvatar(String email, double radius) {
+  Widget _buildDefaultAvatar(String label, double radius) {
     return Container(
       width: radius * 2,
       height: radius * 2,
@@ -322,7 +435,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
       child: Center(
         child: Text(
-          email.split('@')[0][0].toUpperCase(),
+          _firstInitial(label),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -333,12 +446,89 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  String _firstInitial(String label) {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) return '?';
+    return trimmed[0].toUpperCase();
+  }
+
+  List<Widget> _buildMessageItems(String? myUid) {
+    final List<Widget> items = [];
+    DateTime? previousDay;
+    for (final msg in _messages) {
+      final ts = msg['timestamp'];
+      DateTime dt;
+      if (ts is int) {
+        dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      } else if (ts is String) {
+        final parsed = int.tryParse(ts);
+        dt = DateTime.fromMillisecondsSinceEpoch(parsed ?? 0);
+      } else {
+        dt = DateTime.now();
+      }
+      final dayKey = DateTime(dt.year, dt.month, dt.day);
+      if (previousDay == null || dayKey != previousDay) {
+        items.add(_buildDateSeparator(dt));
+        previousDay = dayKey;
+      }
+      final isMe = msg['from'] == myUid;
+      items.add(_buildMessage(msg, isMe));
+    }
+    return items;
+  }
+
+  Widget _buildDateSeparator(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dayKey = DateTime(dt.year, dt.month, dt.day);
+    String label;
+    if (dayKey == today) {
+      label = 'Hôm nay';
+    } else if (dayKey == yesterday) {
+      label = 'Hôm qua';
+    } else {
+      label = DateFormat('dd/MM/yyyy').format(dt);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Text(
+              label,
+              style: AppTheme.captionStyle.copyWith(
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppTheme.appBar(
-        title: widget.friendEmail,
+        title: _displayName.isNotEmpty ? _displayName : widget.friendEmail,
+        subtitle: _presenceSubtitle,
         actions: [
           IconButton(
             icon: const Icon(Icons.phone, color: Colors.white),
@@ -348,7 +538,9 @@ class _ChatPageState extends State<ChatPage> {
                 MaterialPageRoute(
                   builder: (context) => CallPage(
                     friendId: widget.friendId,
-                    friendEmail: widget.friendEmail,
+                    friendEmail: _displayName.isNotEmpty
+                        ? _displayName
+                        : widget.friendEmail,
                   ),
                 ),
               );
@@ -369,15 +561,10 @@ class _ChatPageState extends State<ChatPage> {
                       message: 'Chưa có tin nhắn nào.\nHãy bắt đầu trò chuyện!',
                       icon: Icons.chat_bubble_outline_rounded,
                     )
-                  : ListView.builder(
+                  : ListView(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(AppTheme.spacingM),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = _messages[index];
-                        final isMe = msg['from'] == user?.uid;
-                        return _buildMessage(msg, isMe);
-                      },
+                      children: _buildMessageItems(user?.uid),
                     ),
             ),
             // Input area

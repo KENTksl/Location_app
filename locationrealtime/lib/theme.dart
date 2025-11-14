@@ -204,19 +204,65 @@ class AppTheme {
   // App Bar Style
   static AppBar appBar({
     required String title,
+    String? subtitle,
     List<Widget>? actions,
     bool centerTitle = true,
     Color? backgroundColor,
   }) {
-    return AppBar(
-      title: Text(
+    Widget titleWidget;
+    if (subtitle == null || subtitle.isEmpty) {
+      titleWidget = Text(
         title,
         style: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
-      ),
+      );
+    } else {
+      final isOnline = subtitle == 'Đang hoạt động';
+      titleWidget = Column(
+        crossAxisAlignment:
+            centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isOnline ? Colors.greenAccent : Colors.white70,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return AppBar(
+      title: titleWidget,
       centerTitle: centerTitle,
       backgroundColor: backgroundColor ?? primaryColor,
       elevation: 0,

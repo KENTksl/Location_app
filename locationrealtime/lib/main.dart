@@ -7,6 +7,7 @@ import 'pages/incoming_call_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'theme.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,15 +38,21 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  StreamSubscription<User?>? _authSub;
+  String? _currentUid;
   @override
   void initState() {
     super.initState();
-    _setOnlineStatus(true);
+    WidgetsBinding.instance.addObserver(this);
+    _watchAuthChanges();
+    _setupPresence();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSub?.cancel();
     _setOnlineStatus(false);
     super.dispose();
   }
@@ -55,12 +62,71 @@ class _MyAppState extends State<MyApp> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await FirebaseDatabase.instance.ref('online/${user.uid}').set(isOnline);
+        if (!isOnline) {
+          await FirebaseDatabase.instance
+              .ref('lastSeen/${user.uid}')
+              .set(ServerValue.timestamp);
+        }
         print('✅ Set online status: $isOnline for user: ${user.uid}');
       } else {
         print('⚠️ No authenticated user found');
       }
     } catch (e) {
       print('❌ Error setting online status: $e');
+    }
+  }
+
+  void _setupPresence() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final onlineRef = FirebaseDatabase.instance.ref('online/${user.uid}');
+    final lastSeenRef = FirebaseDatabase.instance.ref('lastSeen/${user.uid}');
+
+    // Mark online now
+    await onlineRef.set(true);
+    await lastSeenRef.set(ServerValue.timestamp);
+
+    // Ensure cleanup when connection drops
+    await onlineRef.onDisconnect().set(false);
+    await lastSeenRef.onDisconnect().set(ServerValue.timestamp);
+  }
+
+  void _watchAuthChanges() {
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      final previousUid = _currentUid;
+      if (user != null) {
+        // If switching accounts without an explicit sign out, mark previous offline
+        if (previousUid != null && previousUid != user.uid) {
+          await FirebaseDatabase.instance.ref('online/$previousUid').set(false);
+          await FirebaseDatabase.instance.ref('lastSeen/$previousUid').set(ServerValue.timestamp);
+        }
+
+        _currentUid = user.uid;
+        final onlineRef = FirebaseDatabase.instance.ref('online/${user.uid}');
+        final lastSeenRef = FirebaseDatabase.instance.ref('lastSeen/${user.uid}');
+        await onlineRef.set(true);
+        // Keep lastSeen updated on connect to ensure a valid timestamp exists
+        await lastSeenRef.set(ServerValue.timestamp);
+        await onlineRef.onDisconnect().set(false);
+        await lastSeenRef.onDisconnect().set(ServerValue.timestamp);
+      } else {
+        if (previousUid != null) {
+          await FirebaseDatabase.instance.ref('online/$previousUid').set(false);
+          await FirebaseDatabase.instance.ref('lastSeen/$previousUid').set(ServerValue.timestamp);
+        }
+        _currentUid = null;
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _setOnlineStatus(true);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _setOnlineStatus(false);
     }
   }
 
