@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Colors
-  static const Color primaryColor = Color(0xFF667eea);
-  static const Color secondaryColor = Color(0xFF764ba2);
+  // Revised palette to soft purple–blue pastel
+  static const Color primaryColor = Color(0xFF7A6CF2); // soft purple
+  static const Color secondaryColor = Color(0xFFA68CFF); // pastel blue-violet
   static const Color accentColor = Color(0xFF4CAF50);
   static const Color errorColor = Color(0xFFE57373);
   static const Color warningColor = Color(0xFFFFB74D);
@@ -30,17 +31,19 @@ class AppTheme {
   // Text Styles
   static const TextStyle headingStyle = TextStyle(
     fontSize: 28,
-    fontWeight: FontWeight.bold,
+    fontWeight: FontWeight.w600, // semibold per typography system
     color: Colors.white,
   );
 
   static const TextStyle subheadingStyle = TextStyle(
     fontSize: 16,
+    fontWeight: FontWeight.w500, // medium
     color: Colors.white,
   );
 
   static const TextStyle bodyStyle = TextStyle(
     fontSize: 16,
+    fontWeight: FontWeight.w400, // regular
     color: textPrimaryColor,
   );
 
@@ -102,11 +105,11 @@ class AppTheme {
       height: height,
       decoration: BoxDecoration(
         gradient: primaryGradient,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withValues(alpha: 0.3),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.10), // unified soft shadow
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -114,7 +117,7 @@ class AppTheme {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: isLoading ? null : onPressed,
           child: Center(
             child: isLoading
@@ -144,12 +147,12 @@ class AppTheme {
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: primaryColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -157,7 +160,7 @@ class AppTheme {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: onPressed,
           child: Center(
             child: Text(
@@ -178,7 +181,7 @@ class AppTheme {
   static Widget card({
     required Widget child,
     EdgeInsetsGeometry? padding,
-    double borderRadius = 16,
+    double borderRadius = 20,
     Color? backgroundColor,
     List<BoxShadow>? boxShadow,
   }) {
@@ -191,9 +194,9 @@ class AppTheme {
             boxShadow ??
             [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
       ),
@@ -222,8 +225,9 @@ class AppTheme {
     } else {
       final isOnline = subtitle == 'Đang hoạt động';
       titleWidget = Column(
-        crossAxisAlignment:
-            centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: centerTitle
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
@@ -329,30 +333,37 @@ class AppTheme {
   // Spacing
   static const double spacingXS = 4.0;
   static const double spacingS = 8.0;
-  static const double spacingM = 16.0;
-  static const double spacingL = 24.0;
+  static const double spacingM = 16.0; // inside card padding baseline
+  static const double spacingL = 20.0; // page horizontal padding
   static const double spacingXL = 32.0;
   static const double spacingXXL = 48.0;
+  static const double verticalCardSpacing = 14.0; // between cards
+  static const double cardPadding = 16.0; // inside card padding
 
   // Border Radius
-  static const double borderRadiusS = 8.0;
-  static const double borderRadiusM = 16.0;
-  static const double borderRadiusL = 24.0;
+  static const double borderRadiusS = 12.0;
+  static const double borderRadiusM = 20.0; // for pills/buttons/cards
+  static const double borderRadiusL = 22.0; // panels/cards
 
   // Shadows
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.1),
-      blurRadius: 10,
-      offset: const Offset(0, 5),
+      color: Colors.black.withOpacity(0.10),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     ),
   ];
 
   static List<BoxShadow> get buttonShadow => [
     BoxShadow(
-      color: primaryColor.withValues(alpha: 0.3),
-      blurRadius: 8,
+      color: Colors.black.withOpacity(0.10),
+      blurRadius: 12,
       offset: const Offset(0, 4),
     ),
   ];
+
+  // Icon scheme
+  static const double iconSize = 24.0; // consistent icon size
+  static const Color iconInactive = Color(0xFF9AA0B5);
+  static const Color iconActiveGlow = Colors.white; // used on gradient pills
 }

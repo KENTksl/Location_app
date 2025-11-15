@@ -9,9 +9,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'dart:io';
 import 'dart:async';
+import 'dart:ui';
 import 'login_page.dart';
 import 'friend_requests_page.dart';
 import 'location_history_page.dart';
+import '../theme.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -37,6 +39,9 @@ class _UserProfilePageState extends State<UserProfilePage>
   Timer? _locationTimer;
   StreamSubscription<Position>? _locationSubscription;
   final ImagePicker _picker = ImagePicker();
+  bool _pressFriend = false;
+  bool _pressHistory = false;
+  bool _pressLogout = false;
 
   @override
   void initState() {
@@ -370,21 +375,24 @@ class _UserProfilePageState extends State<UserProfilePage>
   void _startBackgroundLocationSharing() async {
     if (_isSharing && user != null) {
       // Sử dụng BackgroundLocationService cho background tracking
-      final success = await BackgroundLocationService.instance.startBackgroundLocationTracking();
-      
+      final success = await BackgroundLocationService.instance
+          .startBackgroundLocationTracking();
+
       if (success) {
         print('Background location service started successfully');
-        
+
         // Cập nhật trạng thái ngay lập tức
         await _updateLocationImmediately();
       } else {
-        print('Failed to start background location service, falling back to foreground tracking');
+        print(
+          'Failed to start background location service, falling back to foreground tracking',
+        );
         // Fallback to old method if background service fails
         _startForegroundLocationSharing();
       }
     }
   }
-  
+
   void _startForegroundLocationSharing() {
     _backgroundTimer?.cancel();
     _locationSubscription?.cancel();
@@ -489,7 +497,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   void _stopBackgroundLocationSharing() async {
     // Dừng BackgroundLocationService
     await BackgroundLocationService.instance.stopBackgroundLocationTracking();
-    
+
     // Dừng các timer và subscription cũ
     _backgroundTimer?.cancel();
     _backgroundTimer = null;
@@ -497,7 +505,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     _locationSubscription = null;
     _locationTimer?.cancel();
     _locationTimer = null;
-    
+
     print('Background location service stopped');
   }
 
@@ -622,13 +630,19 @@ class _UserProfilePageState extends State<UserProfilePage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(20),
+        // Modal background: white, large top rounded corners (28px)
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -637,9 +651,10 @@ class _UserProfilePageState extends State<UserProfilePage>
         children: [
           const Text(
             'Chọn Avatar',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600, // medium weight
               color: Color(0xFF1e293b),
             ),
           ),
@@ -660,16 +675,24 @@ class _UserProfilePageState extends State<UserProfilePage>
                   onTap: _pickImage,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF667eea).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      // White tile, rounded 20px, soft shadow
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFF667eea),
-                        width: 2,
+                        color: const Color(0xFF8E6CF2),
+                        width: 1, // thin purple border
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: const Icon(
                       Icons.add_a_photo,
-                      color: Color(0xFF667eea),
+                      color: Color(0xFF8E6CF2),
                       size: 24,
                     ),
                   ),
@@ -683,16 +706,34 @@ class _UserProfilePageState extends State<UserProfilePage>
                 onTap: () => _selectRandomAvatar(avatarSeed),
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    // White rounded-square tile (20px) with soft shadow
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF667eea)
-                          : Colors.grey.shade300,
-                      width: isSelected ? 3 : 1,
+                          ? const Color(0xFF8E6CF2)
+                          : Colors.transparent,
+                      width: isSelected ? 2 : 0,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                      if (isSelected)
+                        BoxShadow(
+                          // Soft glow for selected tile
+                          color: const Color(0xFF8E6CF2).withOpacity(0.35),
+                          blurRadius: 12,
+                          spreadRadius: 0.5,
+                          offset: const Offset(0, 3),
+                        ),
+                    ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(20),
+                    // Ensure avatars are fully visible with no overlays
                     child: RandomAvatar(avatarSeed, height: 60, width: 60),
                   ),
                 ),
@@ -700,15 +741,17 @@ class _UserProfilePageState extends State<UserProfilePage>
             },
           ),
           const SizedBox(height: 16),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _showAvatarSelector = false;
-              });
-            },
-            child: const Text(
-              'Đóng',
-              style: TextStyle(color: Color(0xFF667eea)),
+          Center(
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _showAvatarSelector = false;
+                });
+              },
+              child: const Text(
+                'Đóng',
+                style: TextStyle(color: Color(0xFF667eea)),
+              ),
             ),
           ),
         ],
@@ -721,18 +764,25 @@ class _UserProfilePageState extends State<UserProfilePage>
     final theme = Theme.of(context);
     return Scaffold(
       body: Container(
+        // Soft purple-blue vertical gradient for the top area
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF6F3FF), Color(0xFFECE8FF)],
           ),
         ),
         child: Stack(
           children: [
             SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                // Ensure avatar does not touch top status bar
+                padding: const EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 28,
+                  bottom: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -744,7 +794,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Color(0xFF1e293b),
                           ),
                         ),
                       ],
@@ -781,15 +831,15 @@ class _UserProfilePageState extends State<UserProfilePage>
                     // User Info
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -816,20 +866,20 @@ class _UserProfilePageState extends State<UserProfilePage>
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
                     // Location Sharing Card
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -840,8 +890,8 @@ class _UserProfilePageState extends State<UserProfilePage>
                             children: [
                               Icon(
                                 _isSharing
-                                    ? Icons.location_on
-                                    : Icons.location_off,
+                                    ? Icons.location_on_outlined
+                                    : Icons.location_off_outlined,
                                 color: _isSharing ? Colors.green : Colors.grey,
                                 size: 24,
                               ),
@@ -920,20 +970,23 @@ class _UserProfilePageState extends State<UserProfilePage>
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
-                    // Friend Requests Card
+                    // Friend Requests Card (Solid white card + gradient pill)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -942,9 +995,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.people,
-                                color: Color(0xFF667eea),
+                              Icon(
+                                Icons.people_outline,
+                                color: AppTheme.primaryColor,
                                 size: 24,
                               ),
                               const SizedBox(width: 10),
@@ -952,7 +1005,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                                 'Lời mời kết bạn',
                                 style: TextStyle(
                                   fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w600,
                                   color: Color(0xFF1e293b),
                                 ),
                               ),
@@ -964,8 +1017,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF667eea),
+                                    gradient: AppTheme.primaryGradient,
                                     borderRadius: BorderRadius.circular(12),
+                                    boxShadow: AppTheme.buttonShadow,
                                   ),
                                   child: Text(
                                     '$_requestCount',
@@ -982,100 +1036,237 @@ class _UserProfilePageState extends State<UserProfilePage>
                             _requestCount > 0
                                 ? 'Bạn có $_requestCount lời mời kết bạn mới'
                                 : 'Không có lời mời kết bạn nào',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
-                              color: Color(0xFF64748b),
+                              color: const Color(0xFF1e293b).withOpacity(0.7),
                             ),
                           ),
                           const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const FriendRequestsPage(),
-                                ),
-                              );
-
-                              // Nếu có kết quả từ trang lời mời kết bạn, cập nhật stats
-                              if (result == true) {
-                                _loadStats();
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF667eea),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          AnimatedScale(
+                            scale: _pressFriend ? 0.97 : 1.0,
+                            duration: const Duration(milliseconds: 120),
+                            child: GestureDetector(
+                              onTapDown: (_) =>
+                                  setState(() => _pressFriend = true),
+                              onTapCancel: () =>
+                                  setState(() => _pressFriend = false),
+                              onTapUp: (_) =>
+                                  setState(() => _pressFriend = false),
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const FriendRequestsPage(),
+                                  ),
+                                );
+                                if (result == true) {
+                                  _loadStats();
+                                }
+                              },
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: AppTheme.primaryGradient,
+                                      borderRadius: BorderRadius.circular(30),
+                                      boxShadow: AppTheme.buttonShadow,
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'Quản lý lời mời',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    left: 4,
+                                    right: 4,
+                                    child: Container(
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(3),
+                                        color: Colors.white.withOpacity(0.15),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            child: Text(
-                              _requestCount > 0
-                                  ? 'Xem lời mời'
-                                  : 'Quản lý lời mời',
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
-                    // Location History Button
-                    SizedBox(
+                    // Location History Card (Solid white + gradient pill)
+                    Container(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LocationHistoryPage(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.history_rounded),
-                        label: const Text('Lịch sử di chuyển'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF667eea),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.history_outlined,
+                            color: AppTheme.primaryColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Lịch sử di chuyển',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1e293b),
+                              ),
+                            ),
+                          ),
+                          AnimatedScale(
+                            scale: _pressHistory ? 0.97 : 1.0,
+                            duration: const Duration(milliseconds: 120),
+                            child: GestureDetector(
+                              onTapDown: (_) =>
+                                  setState(() => _pressHistory = true),
+                              onTapCancel: () =>
+                                  setState(() => _pressHistory = false),
+                              onTapUp: (_) =>
+                                  setState(() => _pressHistory = false),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const LocationHistoryPage(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.primaryGradient,
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: AppTheme.buttonShadow,
+                                ),
+                                child: const Text(
+                                  'Xem',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
-                    // Logout Button
-                    SizedBox(
+                    // Logout Card (Solid white + red pill)
+                    Container(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          if (mounted) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const LoginPage(),
-                              ),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        child: const Text(
-                          'Đăng xuất',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.logout_outlined,
+                            color: Color(0xFFEF4444),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Đăng xuất',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1e293b),
+                              ),
+                            ),
+                          ),
+                          AnimatedScale(
+                            scale: _pressLogout ? 0.97 : 1.0,
+                            duration: const Duration(milliseconds: 120),
+                            child: GestureDetector(
+                              onTapDown: (_) =>
+                                  setState(() => _pressLogout = true),
+                              onTapCancel: () =>
+                                  setState(() => _pressLogout = false),
+                              onTapUp: (_) =>
+                                  setState(() => _pressLogout = false),
+                              onTap: () async {
+                                await FirebaseAuth.instance.signOut();
+                                if (mounted) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const LoginPage(),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444),
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: AppTheme.buttonShadow,
+                                ),
+                                child: const Text(
+                                  'Thoát',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

@@ -6,7 +6,7 @@ import '../services/location_history_service.dart';
 
 class LocationHistoryPage extends StatefulWidget {
   final LocationHistoryService? service;
-  
+
   const LocationHistoryPage({super.key, this.service});
 
   @override
@@ -20,6 +20,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   bool _isLoading = true;
   String _selectedFilter = 'all'; // all, week, month, year
   int? _retentionDays; // null: tắt tự xóa
+  final ScrollController _filterScrollController = ScrollController();
 
   @override
   void initState() {
@@ -127,7 +128,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                         'Lịch sử di chuyển',
                         style: TextStyle(
                           fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
@@ -143,8 +144,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
               ),
 
               // Stats Card
-              if (_stats != null)
-                SliverToBoxAdapter(child: _buildStatsCard()),
+              if (_stats != null) SliverToBoxAdapter(child: _buildStatsCard()),
 
               // Filter Buttons
               SliverToBoxAdapter(child: _buildFilterButtons()),
@@ -178,9 +178,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
 
         int? selectedDays = _retentionDays;
         final TextEditingController customController = TextEditingController(
-          text: selectedDays == null
-              ? (_retentionDays?.toString() ?? '')
-              : '',
+          text: selectedDays == null ? (_retentionDays?.toString() ?? '') : '',
         );
 
         return StatefulBuilder(
@@ -197,12 +195,32 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Subtle top divider shadow
+                  Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   const Text(
                     'Tự động xóa lộ trình',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  ...options.map((opt) => RadioListTile<int?>(
+                  ...options.map(
+                    (opt) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                      ), // 12pt spacing between options
+                      child: RadioListTile<int?>(
+                        contentPadding: EdgeInsets.zero,
                         title: Text(opt['label'] as String),
                         value: opt['days'] as int?,
                         groupValue: selectedDays,
@@ -214,7 +232,9 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                             }
                           });
                         },
-                      )),
+                      ),
+                    ),
+                  ),
                   if (selectedDays == null) ...[
                     const SizedBox(height: 8),
                     const Text('Nhập số ngày giữ lại (ví dụ: 45):'),
@@ -222,9 +242,26 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                     TextField(
                       controller: customController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Số ngày',
-                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDCDCDC),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFDCDCDC),
+                            width: 2,
+                          ),
+                        ),
                       ),
                       onChanged: (val) {
                         setModalState(() {});
@@ -236,6 +273,11 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                         child: const Text('Đóng'),
                       ),
                       const Spacer(),
@@ -268,6 +310,11 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                             ),
                           );
                         },
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                         child: const Text('Lưu'),
                       ),
                     ],
@@ -346,28 +393,43 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   ) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 24),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.25)),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
             const SizedBox(height: 8),
             Text(
               value,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 color: color,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748b)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -379,43 +441,55 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
   Widget _buildFilterButtons() {
     return Container(
       margin: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          _buildFilterButton('Tất cả', 'all'),
-          const SizedBox(width: 10),
-          _buildFilterButton('Tuần này', 'week'),
-          const SizedBox(width: 10),
-          _buildFilterButton('Tháng này', 'month'),
-          const SizedBox(width: 10),
-          _buildFilterButton('Năm nay', 'year'),
-        ],
+      child: Scrollbar(
+        controller: _filterScrollController,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _filterScrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterButton('Tất cả', 'all'),
+              const SizedBox(width: 10),
+              _buildFilterButton('Tuần này', 'week'),
+              const SizedBox(width: 10),
+              _buildFilterButton('Tháng này', 'month'),
+              const SizedBox(width: 10),
+              _buildFilterButton('Năm nay', 'year'),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildFilterButton(String text, String value) {
     final isSelected = _selectedFilter == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedFilter = value;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF8E6CF2).withOpacity(0.7)
+                : Colors.transparent,
+            width: isSelected ? 3 : 0,
           ),
-          child: Text(
-            text,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFF667eea) : Colors.white,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-            textAlign: TextAlign.center,
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isSelected ? const Color(0xFF667eea) : Colors.white,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
@@ -425,9 +499,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     if (_isLoading) {
       return const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
       );
     }
 
@@ -466,13 +538,10 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final route = _filteredRoutes[index];
-          return _buildRouteCard(route);
-        },
-        childCount: _filteredRoutes.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final route = _filteredRoutes[index];
+        return _buildRouteCard(route);
+      }, childCount: _filteredRoutes.length),
     );
   }
 

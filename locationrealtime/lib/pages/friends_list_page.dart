@@ -13,6 +13,7 @@ import 'chat_page.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'main_navigation_page.dart'; // Added import for MainNavigationPage
 import '../services/unread_message_service.dart';
+import '../theme.dart';
 
 class FriendsListPage extends StatefulWidget {
   const FriendsListPage({super.key});
@@ -599,11 +600,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          ),
+          // Replace intense gradient with soft single-tone pastel
+          color: Color(0xFFF7FAFC),
         ),
         child: SafeArea(
           child: Column(
@@ -769,27 +767,30 @@ class _FriendsListPageState extends State<FriendsListPage> {
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
                           itemCount: _filteredFriends.length,
                           itemBuilder: (context, index) {
                             final friend = _filteredFriends[index];
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(16),
+                              // Compact height ~20% smaller via spacing
+                              margin: EdgeInsets.only(
+                                bottom: AppTheme.verticalCardSpacing,
+                              ),
+                              padding: EdgeInsets.all(AppTheme.cardPadding),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
+                                  // Soft neumorphism shadow at ~6%
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
+                                    color: Colors.black.withOpacity(0.10),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
-                                border: Border.all(
-                                  color: Colors.grey.shade100,
-                                  width: 1,
-                                ),
                               ),
                               child: Column(
                                 children: [
@@ -798,13 +799,18 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                     children: [
                                       // Avatar
                                       Container(
+                                        padding: const EdgeInsets.all(2),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: AppTheme.primaryColor,
+                                            width: 2,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(
-                                                0xFF667eea,
-                                              ).withOpacity(0.2),
+                                              color: Colors.black.withOpacity(
+                                                0.08,
+                                              ),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -845,7 +851,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 8),
                                   // Bottom row with distance and actions
                                   Row(
                                     children: [
@@ -861,12 +867,28 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                                 _friendDistances[friend['id']] !=
                                                     null
                                                 ? const Color(
-                                                    0xFF10b981,
-                                                  ).withOpacity(0.1)
+                                                    0xFF34D399,
+                                                  ).withOpacity(0.12)
                                                 : Colors.grey.shade100,
                                             borderRadius: BorderRadius.circular(
-                                              12,
+                                              20,
                                             ),
+                                            boxShadow:
+                                                _friendDistances[friend['id']] !=
+                                                    null
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(
+                                                        0xFF10B981,
+                                                      ).withOpacity(0.12),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(
+                                                        0,
+                                                        2,
+                                                      ),
+                                                    ),
+                                                  ]
+                                                : null,
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -877,7 +899,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                                 color:
                                                     _friendDistances[friend['id']] !=
                                                         null
-                                                    ? const Color(0xFF10b981)
+                                                    ? const Color(0xFF10B981)
                                                     : Colors.grey.shade500,
                                               ),
                                               const SizedBox(width: 4),
@@ -895,7 +917,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                                         _friendDistances[friend['id']] !=
                                                             null
                                                         ? const Color(
-                                                            0xFF10b981,
+                                                            0xFF059669,
                                                           )
                                                         : Colors.grey.shade600,
                                                     fontWeight: FontWeight.w600,
@@ -918,20 +940,20 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                             width: 36,
                                             height: 36,
                                             decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFFf59e0b,
-                                              ).withOpacity(0.1),
+                                              gradient:
+                                                  AppTheme.primaryGradient,
                                               borderRadius:
-                                                  BorderRadius.circular(10),
+                                                  BorderRadius.circular(18),
+                                              boxShadow: AppTheme.buttonShadow,
                                             ),
                                             child: Stack(
                                               children: [
                                                 IconButton(
                                                   padding: EdgeInsets.zero,
-                                                  icon: const Icon(
+                                                  icon: Icon(
                                                     Icons.chat_bubble_rounded,
-                                                    color: Color(0xFFf59e0b),
-                                                    size: 18,
+                                                    color: Colors.white,
+                                                    size: AppTheme.iconSize,
                                                   ),
                                                   onPressed: () {
                                                     Navigator.push(
@@ -949,28 +971,43 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                                   },
                                                 ),
                                                 // Unread message badge
-                                                if (_unreadCounts[friend['id']] != null && _unreadCounts[friend['id']]! > 0)
+                                                if (_unreadCounts[friend['id']] !=
+                                                        null &&
+                                                    _unreadCounts[friend['id']]! >
+                                                        0)
                                                   Positioned(
                                                     right: 0,
                                                     top: 0,
                                                     child: Container(
-                                                      padding: const EdgeInsets.all(2),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            2,
+                                                          ),
                                                       decoration: BoxDecoration(
                                                         color: Colors.red,
-                                                        borderRadius: BorderRadius.circular(10),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
                                                       ),
-                                                      constraints: const BoxConstraints(
-                                                        minWidth: 16,
-                                                        minHeight: 16,
-                                                      ),
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                            minWidth: 16,
+                                                            minHeight: 16,
+                                                          ),
                                                       child: Text(
-                                                        _unreadMessageService.getUnreadCountDisplay(_unreadCounts[friend['id']]!),
+                                                        _unreadMessageService
+                                                            .getUnreadCountDisplay(
+                                                              _unreadCounts[friend['id']]!,
+                                                            ),
                                                         style: const TextStyle(
                                                           color: Colors.white,
                                                           fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                         ),
-                                                        textAlign: TextAlign.center,
+                                                        textAlign:
+                                                            TextAlign.center,
                                                       ),
                                                     ),
                                                   ),
@@ -987,104 +1024,175 @@ class _FriendsListPageState extends State<FriendsListPage> {
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
-                                            child: PopupMenuButton<String>(
-                                              padding: EdgeInsets.zero,
-                                              icon: Icon(
-                                                Icons.more_horiz_rounded,
-                                                color: Colors.grey.shade600,
-                                                size: 18,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              offset: const Offset(0, 40),
-                                              itemBuilder: (context) => [
-                                                PopupMenuItem<String>(
-                                                  value: 'edit',
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.edit_rounded,
-                                                        color: const Color(0xFF8b5cf6),
-                                                        size: 18,
-                                                      ),
-                                                      const SizedBox(width: 12),
-                                                      const Text('Sửa biệt danh'),
-                                                    ],
-                                                  ),
-                                                ),
-                                                PopupMenuItem<String>(
-                                                  value: 'location',
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.location_on_rounded,
-                                                        color: const Color(0xFF667eea),
-                                                        size: 18,
-                                                      ),
-                                                      const SizedBox(width: 12),
-                                                      const Text('Xem vị trí'),
-                                                    ],
-                                                  ),
-                                                ),
-                                                PopupMenuItem<String>(
-                                                  value: 'delete',
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.person_remove_rounded,
-                                                        color: const Color(0xFFef4444),
-                                                        size: 18,
-                                                      ),
-                                                      const SizedBox(width: 12),
-                                                      const Text(
-                                                        'Xóa kết bạn',
-                                                        style: TextStyle(
-                                                          color: Color(0xFFef4444),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                              onSelected: (value) {
-                                                switch (value) {
-                                                  case 'edit':
-                                                    _showNicknameDialog(friend);
-                                                    break;
-                                                  case 'location':
-                                                    if (_friendDistances[friend['id']] !=
-                                                        null) {
-                                                      Navigator.pushReplacement(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder: (context) =>
-                                                              MainNavigationPage(
-                                                                focusFriendId:
-                                                                    friend['id'],
-                                                                focusFriendEmail:
-                                                                    friend['email'],
-                                                                selectedTab: 0,
+                                            child: Theme(
+                                              data: Theme.of(context).copyWith(
+                                                shadowColor: Colors.black
+                                                    .withOpacity(0.12),
+                                                popupMenuTheme:
+                                                    const PopupMenuThemeData(
+                                                      elevation: 8,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.all(
+                                                              Radius.circular(
+                                                                18,
                                                               ),
+                                                            ),
+                                                      ),
+                                                      color: Colors.white,
+                                                    ),
+                                                dividerTheme: DividerThemeData(
+                                                  color: Colors.black
+                                                      .withOpacity(0.08),
+                                                  thickness: 0.7,
+                                                  space: 8,
+                                                ),
+                                              ),
+                                              child: PopupMenuButton<String>(
+                                                padding: EdgeInsets.zero,
+                                                icon: Icon(
+                                                  Icons.more_horiz_rounded,
+                                                  color: Colors.grey.shade600,
+                                                  size: 21,
+                                                ),
+                                                shape:
+                                                    const RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.all(
+                                                            Radius.circular(18),
+                                                          ),
+                                                    ),
+                                                offset: const Offset(0, 40),
+                                                itemBuilder: (context) => [
+                                                  PopupMenuItem<String>(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 14,
                                                         ),
-                                                      );
-                                                    } else {
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Bạn này chưa chia sẻ vị trí',
+                                                    value: 'edit',
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.edit_rounded,
+                                                          color: Color(
+                                                            0xFF8b5cf6,
+                                                          ),
+                                                          size: 20,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        const Text(
+                                                          'Sửa biệt danh',
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const PopupMenuDivider(),
+                                                  PopupMenuItem<String>(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 14,
+                                                        ),
+                                                    value: 'location',
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons
+                                                              .location_on_rounded,
+                                                          color: Color(
+                                                            0xFF667eea,
+                                                          ),
+                                                          size: 20,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        const Text(
+                                                          'Xem vị trí',
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const PopupMenuDivider(),
+                                                  PopupMenuItem<String>(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 14,
+                                                        ),
+                                                    value: 'delete',
+                                                    child: Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons
+                                                              .person_remove_rounded,
+                                                          color: Color(
+                                                            0xFFef4444,
+                                                          ),
+                                                          size: 20,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        const Text(
+                                                          'Xóa kết bạn',
+                                                          style: TextStyle(
+                                                            color: Color(
+                                                              0xFFef4444,
+                                                            ),
                                                           ),
                                                         ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                                onSelected: (value) {
+                                                  switch (value) {
+                                                    case 'edit':
+                                                      _showNicknameDialog(
+                                                        friend,
                                                       );
-                                                    }
-                                                    break;
-                                                  case 'delete':
-                                                    _showDeleteFriendDialog(friend);
-                                                    break;
-                                                }
-                                              },
+                                                      break;
+                                                    case 'location':
+                                                      if (_friendDistances[friend['id']] !=
+                                                          null) {
+                                                        Navigator.pushReplacement(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                            builder: (context) =>
+                                                                MainNavigationPage(
+                                                                  focusFriendId:
+                                                                      friend['id'],
+                                                                  focusFriendEmail:
+                                                                      friend['email'],
+                                                                  selectedTab:
+                                                                      0,
+                                                                ),
+                                                          ),
+                                                        );
+                                                      } else {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Bạn này chưa chia sẻ vị trí',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }
+                                                      break;
+                                                    case 'delete':
+                                                      _showDeleteFriendDialog(
+                                                        friend,
+                                                      );
+                                                      break;
+                                                  }
+                                                },
+                                              ),
                                             ),
                                           ),
                                         ],

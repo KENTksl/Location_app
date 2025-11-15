@@ -86,14 +86,18 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (_displayName.isEmpty) {
       final email = widget.friendEmail;
-      _displayName = email.isNotEmpty ? email.split('@').first : widget.friendId;
+      _displayName = email.isNotEmpty
+          ? email.split('@').first
+          : widget.friendId;
     }
     if (mounted) setState(() {});
   }
 
   void _listenFriendPresence() async {
     // Listen to online status
-    final onlineRef = FirebaseDatabase.instance.ref('online/${widget.friendId}');
+    final onlineRef = FirebaseDatabase.instance.ref(
+      'online/${widget.friendId}',
+    );
     _friendOnlineSubscription = onlineRef.onValue.listen((event) {
       final val = event.snapshot.value;
       final online = val == true;
@@ -106,7 +110,9 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     // Listen to last seen timestamp
-    final lastSeenRef = FirebaseDatabase.instance.ref('lastSeen/${widget.friendId}');
+    final lastSeenRef = FirebaseDatabase.instance.ref(
+      'lastSeen/${widget.friendId}',
+    );
     _friendLastSeenSubscription = lastSeenRef.onValue.listen((event) {
       final v = event.snapshot.value;
       int? ms;
@@ -317,25 +323,19 @@ class _ChatPageState extends State<ChatPage> {
                     horizontal: AppTheme.spacingM,
                   ),
                   decoration: BoxDecoration(
+                    // Bubble colors per spec
                     gradient: isMe ? AppTheme.primaryGradient : null,
                     color: isMe ? null : Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(AppTheme.borderRadiusM),
-                      topRight: const Radius.circular(AppTheme.borderRadiusM),
-                      bottomLeft: Radius.circular(
-                        isMe ? AppTheme.borderRadiusM : AppTheme.borderRadiusS,
-                      ),
-                      bottomRight: Radius.circular(
-                        isMe ? AppTheme.borderRadiusS : AppTheme.borderRadiusM,
-                      ),
-                    ),
+                    // Rounded 18–22dp (use 20dp)
+                    borderRadius: BorderRadius.circular(20),
+                    // Soft shadow for incoming only
                     boxShadow: isMe
-                        ? AppTheme.buttonShadow
+                        ? null
                         : [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                   ),
@@ -349,7 +349,8 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+                  // Increase spacing above timestamp by +6px (2 -> 8)
+                  padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -363,8 +364,9 @@ class _ChatPageState extends State<ChatPage> {
                       time,
                       style: AppTheme.captionStyle.copyWith(
                         fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w500,
+                        // Increase contrast
+                        color: AppTheme.textPrimaryColor.withOpacity(0.75),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -550,7 +552,17 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        // Softer background gradient with ~40% reduced saturation
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFE6EAFF), // softened from primary
+              Color(0xFFF4EEFF), // softened from secondary
+            ],
+          ),
+        ),
         child: Column(
           children: [
             Expanded(

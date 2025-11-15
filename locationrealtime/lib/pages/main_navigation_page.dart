@@ -3,6 +3,7 @@ import 'map_page.dart';
 import 'friends_list_page.dart';
 import 'user_profile_page.dart';
 import '../services/call_notification_service.dart';
+import '../theme.dart';
 
 class MainNavigationPage extends StatefulWidget {
   final String? focusFriendId;
@@ -35,17 +36,17 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     NavigationItem(
       icon: Icons.map_rounded,
       label: 'Bản đồ',
-      color: const Color(0xFF667eea),
+      color: AppTheme.primaryColor,
     ),
     NavigationItem(
       icon: Icons.people_rounded,
       label: 'Bạn bè',
-      color: const Color(0xFF10b981),
+      color: AppTheme.primaryColor,
     ),
     NavigationItem(
       icon: Icons.person_rounded,
       label: 'Cá nhân',
-      color: const Color(0xFF06b6d4),
+      color: AppTheme.primaryColor,
     ),
   ];
 
@@ -61,7 +62,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
-    
+
     // Initialize call notification service
     WidgetsBinding.instance.addPostFrameCallback((_) {
       CallNotificationService().initialize(context);
@@ -103,15 +104,15 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(
@@ -143,48 +144,42 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [
-                    item.color.withValues(alpha: 0.2),
-                item.color.withValues(alpha: 0.1),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: EdgeInsets.all(isSelected ? 6 : 3),
-              decoration: BoxDecoration(
-                color: isSelected ? item.color : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                item.icon,
-                size: isSelected ? 20 : 18,
-                color: isSelected
-                    ? Colors.white
-                    : Theme.of(context).brightness == Brightness.light
-                    ? const Color(0xFF94a3b8)
-                    : const Color(0xFF64748b),
-              ),
+            // Gradient pill behind active icon
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: isSelected ? 1.0 : 0.0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(AppTheme.borderRadiusM),
+                      boxShadow: AppTheme.buttonShadow,
+                    ),
+                  ),
+                ),
+                Icon(
+                  item.icon,
+                  size: AppTheme.iconSize,
+                  color: isSelected
+                      ? Colors.white
+                      : AppTheme.iconInactive,
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 6),
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
-                fontSize: isSelected ? 10 : 9,
+                fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? item.color
-                    : Theme.of(context).brightness == Brightness.light
-                    ? const Color(0xFF94a3b8)
-                    : const Color(0xFF64748b),
+                color: isSelected ? AppTheme.primaryColor : AppTheme.iconInactive,
               ),
               child: Text(item.label),
             ),

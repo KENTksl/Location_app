@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -19,6 +20,7 @@ import '../models/location_history.dart';
 import '../services/location_history_service.dart';
 import '../services/background_location_service.dart';
 import 'location_history_page.dart';
+import '../theme.dart';
 
 class MapPage extends StatefulWidget {
   final String? focusFriendId;
@@ -851,7 +853,7 @@ class _MapPageState extends State<MapPage> {
                     child: const Icon(
                       Icons.location_on_rounded,
                       color: Color(0xFF10b981),
-                      size: 24,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -879,6 +881,7 @@ class _MapPageState extends State<MapPage> {
                     ),
                     child: IconButton(
                       onPressed: _getCurrentLocation,
+                      iconSize: 22,
                       icon: const Icon(
                         Icons.my_location_rounded,
                         color: Color(0xFF10b981),
@@ -901,14 +904,14 @@ class _MapPageState extends State<MapPage> {
                     mapController?.animateCamera(CameraUpdate.zoomIn());
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 _buildControlButton(
                   icon: Icons.remove_rounded,
                   onPressed: () {
                     mapController?.animateCamera(CameraUpdate.zoomOut());
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 _buildControlButton(
                   icon: _isRecordingRoute
                       ? Icons.stop_rounded
@@ -918,7 +921,7 @@ class _MapPageState extends State<MapPage> {
                       : _startRouteRecording,
                   isActive: _isRecordingRoute,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 _buildControlButton(
                   icon: Icons.history_rounded,
                   onPressed: _showLocationHistory,
@@ -1062,26 +1065,33 @@ class _MapPageState extends State<MapPage> {
     required VoidCallback onPressed,
     bool isActive = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0xFF667eea)
-            : Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppTheme.primaryColor.withOpacity(0.22)
+                : Colors.white.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(
-          icon,
-          color: isActive ? Colors.white : const Color(0xFF667eea),
+          child: IconButton(
+            icon: Icon(
+              icon,
+              color: isActive ? Colors.white : AppTheme.primaryColor,
+            ),
+            iconSize: AppTheme.iconSize,
+            onPressed: onPressed,
+          ),
         ),
-        onPressed: onPressed,
       ),
     );
   }
