@@ -11,6 +11,9 @@ import 'dart:async'; // Added for StreamSubscription
 import '../services/unread_message_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../widgets/skeletons.dart';
+import '../widgets/empty_states.dart';
+import '../services/toast_service.dart';
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -206,26 +209,48 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      ToastService.show(
+        context,
+        message: 'Vui lòng nhập nội dung tin nhắn.',
+        type: AppToastType.warning,
+      );
+      return;
+    }
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final ref = FirebaseDatabase.instance.ref('chats/$_chatId/messages');
-    final snap = await ref.get();
-    List msgs = [];
-    if (snap.exists && snap.value is List) {
-      msgs = List.from(snap.value as List);
+    if (user == null) {
+      ToastService.show(
+        context,
+        message: 'Bạn cần đăng nhập để gửi tin nhắn.',
+        type: AppToastType.error,
+      );
+      return;
     }
-    // Giới hạn 30 tin nhắn gần nhất
-    if (msgs.length >= 30) {
-      msgs = msgs.sublist(msgs.length - 29);
+    try {
+      final ref = FirebaseDatabase.instance.ref('chats/$_chatId/messages');
+      final snap = await ref.get();
+      List msgs = [];
+      if (snap.exists && snap.value is List) {
+        msgs = List.from(snap.value as List);
+      }
+      // Giới hạn 30 tin nhắn gần nhất
+      if (msgs.length >= 30) {
+        msgs = msgs.sublist(msgs.length - 29);
+      }
+      msgs.add({
+        'from': user.uid,
+        'text': text,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      await ref.set(msgs);
+      _controller.clear();
+    } catch (e) {
+      ToastService.show(
+        context,
+        message: 'Không thể gửi tin nhắn. Vui lòng thử lại.',
+        type: AppToastType.error,
+      );
     }
-    msgs.add({
-      'from': user.uid,
-      'text': text,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    });
-    await ref.set(msgs);
-    _controller.clear();
   }
 
   Future<void> _loadAvatarUrls() async {
@@ -567,12 +592,9 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Expanded(
               child: _loading
-                  ? AppTheme.loadingWidget(message: 'Đang tải tin nhắn...')
+                  ? const ChatSkeleton()
                   : _messages.isEmpty
-                  ? AppTheme.emptyStateWidget(
-                      message: 'Chưa có tin nhắn nào.\nHãy bắt đầu trò chuyện!',
-                      icon: Icons.chat_bubble_outline_rounded,
-                    )
+                  ? const EmptyStateChatNoMessages()
                   : ListView(
                       controller: _scrollController,
                       padding: const EdgeInsets.all(AppTheme.spacingM),

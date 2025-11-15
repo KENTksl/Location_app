@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/location_history.dart';
 import '../services/location_history_service.dart';
+import '../widgets/empty_states.dart';
 
 class LocationHistoryPage extends StatefulWidget {
   final LocationHistoryService? service;
@@ -504,36 +505,9 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
     }
 
     if (_filteredRoutes.isEmpty) {
-      return SliverFillRemaining(
+      return const SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.history, size: 64, color: Colors.white),
-                SizedBox(height: 16),
-                Text(
-                  'Chưa có lịch sử di chuyển',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Các lộ trình của bạn sẽ xuất hiện ở đây',
-                  style: TextStyle(fontSize: 14, color: Colors.white70),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: Center(child: EmptyStateTravelHistoryEmpty()),
       );
     }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../theme.dart';
+import '../widgets/empty_states.dart';
+import '../services/toast_service.dart';
 
 class FriendRequestsPage extends StatefulWidget {
   const FriendRequestsPage({super.key});
@@ -70,6 +72,12 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
         _status = 'Đã xác nhận kết bạn thành công!';
       });
 
+      ToastService.show(
+        context,
+        message: 'Đã xác nhận kết bạn thành công!',
+        type: AppToastType.success,
+      );
+
       // Đợi một chút để Firebase cập nhật
       await Future.delayed(const Duration(milliseconds: 500));
 
@@ -81,6 +89,11 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
       setState(() {
         _status = 'Lỗi khi xác nhận kết bạn: $e';
       });
+      ToastService.show(
+        context,
+        message: 'Không thể xác nhận kết bạn. Vui lòng thử lại.',
+        type: AppToastType.error,
+      );
     }
   }
 
@@ -93,6 +106,11 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
     setState(() {
       _status = 'Đã từ chối lời mời của $fromUserId';
     });
+    ToastService.show(
+      context,
+      message: 'Đã từ chối lời mời kết bạn',
+      type: AppToastType.warning,
+    );
     _loadRequests();
   }
 
@@ -105,11 +123,7 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
         child: _loading
             ? AppTheme.loadingWidget(message: 'Đang tải...')
             : _requests.isEmpty
-            ? AppTheme.emptyStateWidget(
-                message:
-                    'Không có lời mời kết bạn nào.\nHãy chủ động kết bạn với mọi người!',
-                icon: Icons.mark_email_unread_rounded,
-              )
+            ? const EmptyStateFriendRequestsEmpty()
             : ListView.separated(
                 padding: const EdgeInsets.all(AppTheme.spacingM),
                 itemCount: _requests.length,

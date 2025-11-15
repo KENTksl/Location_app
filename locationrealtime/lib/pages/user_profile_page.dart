@@ -14,6 +14,7 @@ import 'login_page.dart';
 import 'friend_requests_page.dart';
 import 'location_history_page.dart';
 import '../theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -52,6 +53,10 @@ class _UserProfilePageState extends State<UserProfilePage>
     _loadStats();
     _generateAvailableAvatars();
     _listenToFriendRequests();
+    // Show permission guidance if first time entering Profile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowPermissionBottomSheet();
+    });
   }
 
   @override
@@ -60,6 +65,108 @@ class _UserProfilePageState extends State<UserProfilePage>
     _backgroundTimer?.cancel();
     _locationSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _maybeShowPermissionBottomSheet() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('location_permission_prompt_shown') ?? false;
+    if (shown) return;
+    await prefs.setBool('location_permission_prompt_shown', true);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      builder: (ctx) {
+        bool pressPrimary = false;
+        return StatefulBuilder(builder: (context, setBSState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: AppTheme.primaryGradient,
+                      boxShadow: AppTheme.buttonShadow,
+                    ),
+                    child: const Icon(Icons.location_pin, color: Colors.white, size: 40),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Center(
+                  child: Text(
+                    'Bật chia sẻ vị trí?',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1e293b)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ứng dụng cần quyền truy cập vị trí để chia sẻ với bạn bè theo thời gian thực.',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF64748b)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTapDown: (_) => setBSState(() => pressPrimary = true),
+                        onTapCancel: () => setBSState(() => pressPrimary = false),
+                        onTapUp: (_) => setBSState(() => pressPrimary = false),
+                        onTap: () async {
+                          if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã bật hướng dẫn chia sẻ vị trí.')),
+                          );
+                        },
+                        child: AnimatedScale(
+                          scale: pressPrimary ? 0.97 : 1.0,
+                          duration: const Duration(milliseconds: 120),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: AppTheme.primaryGradient,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: AppTheme.buttonShadow,
+                            ),
+                            child: const Center(
+                              child: Text('Bật ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          side: const BorderSide(color: Color(0xFFE2E8F0), width: 2),
+                          foregroundColor: const Color(0xFF1e293b),
+                        ),
+                        onPressed: () {
+                          if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+                        },
+                        child: const Text('Để sau', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        });
+      },
+    );
   }
 
   Future<void> _checkLocationSharingStatus() async {

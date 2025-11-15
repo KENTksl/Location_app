@@ -21,6 +21,9 @@ import '../services/location_history_service.dart';
 import '../services/background_location_service.dart';
 import 'location_history_page.dart';
 import '../theme.dart';
+import '../widgets/skeletons.dart';
+import '../widgets/empty_states.dart';
+import 'friend_search_page.dart';
 
 class MapPage extends StatefulWidget {
   final String? focusFriendId;
@@ -815,6 +818,26 @@ class _MapPageState extends State<MapPage> {
             compassEnabled: false,
             onTap: (_) => _stopRouteTimer(),
           ),
+
+          // Map loading overlay
+          MapLoadingOverlay(isVisible: _isLoading),
+
+          // No friends empty state overlay
+          if (!_isLoading && _friendMarkers.isEmpty)
+            Positioned.fill(
+              child: Center(
+                child: EmptyStateMapNoFriends(
+                  onAddFriends: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FriendSearchPage(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
 
           // Modern App Bar
           Positioned(

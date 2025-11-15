@@ -4,10 +4,12 @@ import 'firebase_options.dart';
 import 'pages/login_page.dart';
 import 'pages/main_navigation_page.dart';
 import 'pages/incoming_call_page.dart';
+import 'pages/onboarding_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'theme.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,7 +141,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: ThemeMode.light,
-      home: _getHomeWidget(),
+      home: _initialHome(),
       routes: {
         '/incoming_call': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -300,12 +302,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  Widget _getHomeWidget() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      return const MainNavigationPage();
-    } else {
-      return const LoginPage();
-    }
+  Widget _initialHome() {
+    return FutureBuilder<bool>(
+      future: _shouldShowOnboarding(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final showOnboarding = snapshot.data ?? false;
+        if (showOnboarding) {
+          return const OnboardingPage();
+        }
+        final user = FirebaseAuth.instance.currentUser;
+        return user != null ? const MainNavigationPage() : const LoginPage();
+      },
+    );
+  }
+
+  Future<bool> _shouldShowOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('has_seen_onboarding') ?? false;
+    return !seen;
   }
 }

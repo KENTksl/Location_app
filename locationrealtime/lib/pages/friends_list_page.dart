@@ -14,6 +14,8 @@ import 'dart:async'; // Import for StreamSubscription
 import 'main_navigation_page.dart'; // Added import for MainNavigationPage
 import '../services/unread_message_service.dart';
 import '../theme.dart';
+import '../widgets/skeletons.dart';
+import '../services/toast_service.dart';
 
 class FriendsListPage extends StatefulWidget {
   const FriendsListPage({super.key});
@@ -97,14 +99,18 @@ class _FriendsListPageState extends State<FriendsListPage> {
           _friends.removeWhere((friend) => friend['id'] == friendId);
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xóa kết bạn thành công')),
+        ToastService.show(
+          context,
+          message: 'Đã xóa kết bạn thành công',
+          type: AppToastType.success,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
+      ToastService.show(
         context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi khi xóa kết bạn: $e')));
+        message: 'Không thể xóa kết bạn. Vui lòng thử lại.',
+        type: AppToastType.error,
+      );
     }
   }
 
@@ -724,7 +730,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                     ],
                   ),
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const FriendListSkeleton()
                       : _filteredFriends.isEmpty
                       ? Center(
                           child: Column(
