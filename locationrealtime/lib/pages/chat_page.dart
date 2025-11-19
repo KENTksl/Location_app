@@ -14,6 +14,12 @@ import 'dart:convert';
 import '../widgets/skeletons.dart';
 import '../widgets/empty_states.dart';
 import '../services/toast_service.dart';
+import 'package:provider/provider.dart';
+import '../state/favorite_places_controller.dart';
+import '../models/favorite_place.dart';
+import '../services/map_navigation_service.dart';
+import 'main_navigation_page.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -253,6 +259,106 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _sendFavoritePlaceMessage(FavoritePlace place) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ToastService.show(
+        context,
+        message: 'Bạn cần đăng nhập để chia sẻ địa điểm.',
+        type: AppToastType.error,
+      );
+      return;
+    }
+    try {
+      final ref = FirebaseDatabase.instance.ref('chats/$_chatId/messages');
+      final snap = await ref.get();
+      List msgs = [];
+      if (snap.exists && snap.value is List) {
+        msgs = List.from(snap.value as List);
+      }
+      // Giới hạn 30 tin nhắn gần nhất
+      if (msgs.length >= 30) {
+        msgs = msgs.sublist(msgs.length - 29);
+      }
+      msgs.add({
+        'from': user.uid,
+        'type': 'favorite_place',
+        'place': {
+          'name': place.name,
+          'address': place.address,
+          'lat': place.lat,
+          'lng': place.lng,
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      await ref.set(msgs);
+      ToastService.show(
+        context,
+        message: 'Đã chia sẻ địa điểm yêu thích',
+        type: AppToastType.success,
+      );
+    } catch (e) {
+      ToastService.show(
+        context,
+        message: 'Không thể chia sẻ địa điểm. Vui lòng thử lại.',
+        type: AppToastType.error,
+      );
+    }
+  }
+
+  void _openShareFavoritePlaceSheet() {
+    final favCtrl = context.read<FavoritePlacesController>();
+    final places = favCtrl.places;
+    if (places.isEmpty) {
+      ToastService.show(
+        context,
+        message: 'Bạn chưa có địa điểm yêu thích để chia sẻ.',
+        type: AppToastType.warning,
+      );
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              const Text(
+                'Chia sẻ địa điểm yêu thích',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: places.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (ctx, i) {
+                    final p = places[i];
+                    return ListTile(
+                      leading: const Icon(Icons.place_rounded, color: Colors.deepPurple),
+                      title: Text(p.name),
+                      subtitle: Text(p.address, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _sendFavoritePlaceMessage(p);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _loadAvatarUrls() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -322,6 +428,12 @@ class _ChatPageState extends State<ChatPage> {
         ? (_myEmail ?? '')
         : (_displayName.isNotEmpty ? _displayName : widget.friendEmail);
 
+    // Hiển thị tin nhắn chia sẻ địa điểm yêu thích
+    if (msg['type'] == 'favorite_place' && msg['place'] is Map) {
+      final Map place = msg['place'] as Map;
+      return _buildFavoritePlaceMessage(place, isMe, time, avatarUrl, label);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
@@ -390,6 +502,171 @@ class _ChatPageState extends State<ChatPage> {
                       style: AppTheme.captionStyle.copyWith(
                         fontSize: 10,
                         // Increase contrast
+                        color: AppTheme.textPrimaryColor.withOpacity(0.75),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isMe)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildAvatarWidget(avatarUrl, label),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFavoritePlaceMessage(
+    Map place,
+    bool isMe,
+    String time,
+    String? avatarUrl,
+    String label,
+  ) {
+    final name = (place['name'] ?? '') as String;
+    final address = (place['address'] ?? '') as String;
+    final lat = (place['lat'] as num).toDouble();
+    final lng = (place['lng'] as num).toDouble();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _buildAvatarWidget(avatarUrl, label),
+            ),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: isMe ? AppTheme.primaryGradient : null,
+                    color: isMe ? null : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: isMe
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: AppTheme.primaryGradient,
+                              boxShadow: AppTheme.buttonShadow,
+                            ),
+                            child: const Icon(Icons.place_rounded, color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : AppTheme.textPrimaryColor,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white70 : AppTheme.textSecondaryColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (!isMe) ...[
+                            TextButton.icon(
+                              onPressed: () {
+                                final ctrl = context.read<FavoritePlacesController>();
+                                ctrl.addPlace(name: name, address: address, lat: lat, lng: lng).then((created) {
+                                  if (created != null) {
+                                    ToastService.show(
+                                      context,
+                                      message: 'Đã lưu vào địa điểm yêu thích',
+                                      type: AppToastType.success,
+                                    );
+                                  } else {
+                                    ToastService.show(
+                                      context,
+                                      message: 'Không thể lưu địa điểm',
+                                      type: AppToastType.error,
+                                    );
+                                  }
+                                });
+                              },
+                              icon: const Icon(Icons.bookmark_add_outlined),
+                              label: const Text('Lưu'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () {
+                                MapNavigationService.instance.requestFocus(LatLng(lat, lng));
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const MainNavigationPage(selectedTab: 0),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.map_rounded),
+                              label: const Text('Xem'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      time,
+                      style: AppTheme.captionStyle.copyWith(
+                        fontSize: 10,
                         color: AppTheme.textPrimaryColor.withOpacity(0.75),
                         fontWeight: FontWeight.w600,
                       ),
@@ -642,6 +919,34 @@ class _ChatPageState extends State<ChatPage> {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: AppTheme.spacingM,
                           vertical: AppTheme.spacingS,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.spacingS),
+                  // Nút chia sẻ địa điểm yêu thích
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.borderRadiusM,
+                      ),
+                      boxShadow: AppTheme.buttonShadow,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadiusM,
+                        ),
+                        onTap: _openShareFavoritePlaceSheet,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                          child: const Icon(
+                            Icons.place_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),

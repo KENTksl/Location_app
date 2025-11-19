@@ -15,6 +15,14 @@ import 'friend_requests_page.dart';
 import 'location_history_page.dart';
 import '../theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../state/favorite_places_controller.dart';
+import '../services/map_navigation_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'favorite_place_picker_page.dart';
+import '../models/favorite_place.dart';
+import 'main_navigation_page.dart';
+import '../services/toast_service.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -43,6 +51,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   bool _pressFriend = false;
   bool _pressHistory = false;
   bool _pressLogout = false;
+  bool _favoritesLoadedOnce = false;
 
   @override
   void initState() {
@@ -54,9 +63,19 @@ class _UserProfilePageState extends State<UserProfilePage>
     _generateAvailableAvatars();
     _listenToFriendRequests();
     // Show permission guidance if first time entering Profile
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeShowPermissionBottomSheet();
-    });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maybeShowPermissionBottomSheet();
+        // Ensure favorite places are loaded after auth is ready
+        if (!_favoritesLoadedOnce) {
+          _favoritesLoadedOnce = true;
+          // Call load() via provider to refresh list when opening profile
+          try {
+            context.read<FavoritePlacesController>().load();
+            // Bắt đầu lắng nghe realtime để phản ánh xoá/thêm ngay lập tức
+            context.read<FavoritePlacesController>().startListening();
+          } catch (_) {}
+        }
+      });
   }
 
   @override
@@ -869,6 +888,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final favCtrl = context.watch<FavoritePlacesController>();
     return Scaffold(
       body: Container(
         // Soft purple-blue vertical gradient for the top area
@@ -969,6 +989,207 @@ class _UserProfilePageState extends State<UserProfilePage>
                               color: Color(0xFF64748b),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Favorite Places Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.place_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Text(
+                                  'Địa điểm yêu thích',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1e293b),
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const FavoritePlacePickerPage(),
+                                    ),
+                                  ).then((result) {
+                                    // Làm mới danh sách sau khi quay lại từ trang chọn địa điểm
+                                    try {
+                                      context.read<FavoritePlacesController>().load();
+                                    } catch (_) {}
+                                    // Hiển thị toast ở trang Hồ sơ để đảm bảo overlay còn tồn tại
+                                    if (result is FavoritePlace && mounted) {
+                                      ToastService.show(
+                                        context,
+                                        message: 'Đã lưu địa điểm yêu thích',
+                                        type: AppToastType.success,
+                                      );
+                                    }
+                                  });
+                                },
+                                icon: const Icon(Icons.add_location_alt_rounded),
+                                label: const Text('Thêm'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (favCtrl.loading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          else if (favCtrl.places.isEmpty)
+                            Text(
+                              'Bạn chưa lưu địa điểm nào.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: const Color(0xFF1e293b).withOpacity(0.7),
+                              ),
+                            )
+                          else
+                            ListView.separated(
+                              itemCount: favCtrl.places.length,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (ctx, i) {
+                                final p = favCtrl.places[i];
+                                return Container(
+                                  key: ValueKey<String>('fav_${p.id}'),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.place_rounded, color: AppTheme.primaryColor),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.name,
+                                              style: const TextStyle(fontWeight: FontWeight.w600),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              p.address,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748b)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Xem trên bản đồ',
+                                        icon: const Icon(Icons.map_rounded),
+                                        onPressed: () {
+                                          MapNavigationService.instance
+                                              .requestFocus(LatLng(p.lat, p.lng));
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => const MainNavigationPage(selectedTab: 0),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Xóa',
+                                        icon: const Icon(Icons.delete_outline),
+                                        onPressed: () async {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text('Xóa địa điểm'),
+                                              content: Text('Bạn có chắc muốn xóa "${p.name}"?'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  child: const Text('Hủy'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, true),
+                                                  child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            try {
+                                              final controller = context.read<FavoritePlacesController>();
+                                              await controller.deletePlace(p.id);
+                                              // Đồng bộ lại danh sách từ Firestore để đảm bảo UI cập nhật tức thì
+                                              await controller.load();
+                                              if (mounted) {
+                                                // Nếu bản đồ đang focus vào địa điểm này, hãy xóa trạng thái focus
+                                                MapNavigationService.instance.clearFocus();
+                                                setState(() {}); // ép rebuild giao diện
+                                                ToastService.show(
+                                                  context,
+                                                  message: 'Đã xóa địa điểm',
+                                                  type: AppToastType.success,
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (mounted) {
+                                                ToastService.show(
+                                                  context,
+                                                  message: 'Xóa thất bại: $e',
+                                                  type: AppToastType.error,
+                                                );
+                                              }
+                                            }
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ),
                     ),

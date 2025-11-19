@@ -20,7 +20,8 @@ class ToastService {
       ),
     );
 
-    final overlay = Overlay.of(context);
+    // Dùng root overlay để toast hiển thị kể cả khi route hiện tại bị pop ngay sau đó
+    final overlay = Overlay.of(context, rootOverlay: true);
     overlay?.insert(entry);
 
     Future.delayed(const Duration(milliseconds: 2200), () {

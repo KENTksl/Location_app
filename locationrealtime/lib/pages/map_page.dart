@@ -24,6 +24,9 @@ import '../theme.dart';
 import '../widgets/skeletons.dart';
 import '../widgets/empty_states.dart';
 import 'friend_search_page.dart';
+import '../services/map_navigation_service.dart';
+import 'package:provider/provider.dart';
+import '../state/favorite_places_controller.dart';
 
 class MapPage extends StatefulWidget {
   final String? focusFriendId;
@@ -36,6 +39,29 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
+  // Favorite places controller to drive map markers
+  FavoritePlacesController? _favoriteController;
+
+  // Rebuild favorite place markers from controller state
+  void _updateFavoritePlaceMarkers() {
+    final places = _favoriteController?.places ?? const [];
+    setState(() {
+      // Remove existing favorite markers
+      _markers.removeWhere((m) => m.markerId.value.startsWith('fav_'));
+      // Add current favorite markers
+      for (final p in places) {
+        _markers.add(
+          Marker(
+            markerId: MarkerId('fav_${p.id}')
+            ,
+            position: LatLng(p.lat, p.lng),
+            infoWindow: InfoWindow(title: p.name, snippet: p.address),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ),
+        );
+      }
+    });
+  }
   GoogleMapController? mapController;
   Set<Marker> _markers = {};
   LatLng? _currentPosition;
@@ -68,6 +94,7 @@ class _MapPageState extends State<MapPage> {
   Timer? _routeRecordingTimer;
   StreamSubscription<Position>? _routeLocationSubscription;
   bool _hasLocationPermission = false;
+  LatLng? _pendingFocus;
 
   @override
   void initState() {
@@ -89,6 +116,23 @@ class _MapPageState extends State<MapPage> {
         _isLoading = false;
       });
     }
+
+    // Listen to external focus requests (Favorite Places)
+    MapNavigationService.instance.focusRequest.addListener(() {
+      final target = MapNavigationService.instance.focusRequest.value;
+      if (target != null) {
+        if (mapController != null) {
+          mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 17));
+        } else {
+          _pendingFocus = target;
+        }
+      }
+    });
+
+    // Listen to favorite places and render markers
+    _favoriteController = Provider.of<FavoritePlacesController>(context, listen: false);
+    _favoriteController!.addListener(_updateFavoritePlaceMarkers);
+    _updateFavoritePlaceMarkers();
   }
 
   Future<void> _loadMyAvatar() async {
@@ -266,6 +310,10 @@ class _MapPageState extends State<MapPage> {
     _routeTimer?.cancel();
     _routeRecordingTimer?.cancel();
     _routeLocationSubscription?.cancel();
+    // Ngừng lắng nghe favorite places
+    try {
+      _favoriteController?.removeListener(_updateFavoritePlaceMarkers);
+    } catch (_) {}
     super.dispose();
   }
 
@@ -560,6 +608,10 @@ class _MapPageState extends State<MapPage> {
     mapController = controller;
     if (_currentPosition != null) {
       mapController?.moveCamera(CameraUpdate.newLatLng(_currentPosition!));
+    }
+    if (_pendingFocus != null) {
+      mapController?.animateCamera(CameraUpdate.newLatLngZoom(_pendingFocus!, 17));
+      _pendingFocus = null;
     }
   }
 
@@ -1397,6 +1449,8 @@ class _MapPageState extends State<MapPage> {
     setState(() {
       _markers = {};
     });
+    // Sau khi reset marker, thêm lại các marker cho địa điểm yêu thích
+    _updateFavoritePlaceMarkers();
   }
 
   void _listenToMySharingStatus() {

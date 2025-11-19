@@ -10,6 +10,9 @@ import 'package:firebase_database/firebase_database.dart';
 import 'theme.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'state/favorite_places_controller.dart';
+import 'repositories/firestore_favorite_places_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +31,20 @@ void main() async {
     print('❌ Firebase initialization error: $e');
   }
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => FavoritePlacesController(
+            FirestoreFavoritePlacesRepository(),
+          )
+            ..load()
+            ..startListening(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
