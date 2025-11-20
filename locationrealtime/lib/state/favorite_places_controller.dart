@@ -26,7 +26,8 @@ class FavoritePlacesController extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      _places = await repository.listPlaces(uid);
+      final list = await repository.listPlaces(uid);
+      _places = _dedupPlaces(list);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -44,12 +45,21 @@ class FavoritePlacesController extends ChangeNotifier {
     final uid = _uid;
     if (uid == null) return null;
     try {
+      // Tránh tạo bản ghi trùng nhau theo tọa độ (sai số rất nhỏ) hoặc tên+tọa độ
+      for (final p in _places) {
+        final sameCoords = (p.lat - lat).abs() < 1e-6 && (p.lng - lng).abs() < 1e-6;
+        final sameName = p.name.trim().toLowerCase() == name.trim().toLowerCase();
+        if (sameCoords || (sameName && sameCoords)) {
+          // Trả về bản ghi sẵn có để UI vẫn có thể dùng nếu cần
+          return p;
+        }
+      }
       final created = await repository.createPlace(
         uid,
         FavoritePlace(id: '', name: name, address: address, lat: lat, lng: lng),
       );
-      _places = [..._places, created];
-      notifyListeners();
+      // Không tự thêm vào danh sách cục bộ để tránh hiển thị trùng;
+      // danh sách sẽ được cập nhật qua stream watchPlaces hoặc lần load tiếp theo.
       return created;
     } catch (e) {
       _error = e.toString();
@@ -78,7 +88,7 @@ class FavoritePlacesController extends ChangeNotifier {
     _subscription?.cancel();
     _subscription = repository.watchPlaces(uid).listen(
       (list) {
-        _places = list;
+        _places = _dedupPlaces(list);
         notifyListeners();
       },
       onError: (e) {
@@ -86,6 +96,22 @@ class FavoritePlacesController extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  /// Loại bỏ các phần tử trùng theo `id`, fallback theo `name + lat/lng`
+  List<FavoritePlace> _dedupPlaces(List<FavoritePlace> input) {
+    final seenId = <String>{};
+    final seenKey = <String>{};
+    final result = <FavoritePlace>[];
+    for (final p in input) {
+      final idOk = p.id.isNotEmpty && seenId.add(p.id);
+      final key = '${p.name.trim().toLowerCase()}|${p.lat.toStringAsFixed(6)}|${p.lng.toStringAsFixed(6)}';
+      final keyOk = seenKey.add(key);
+      if (idOk || keyOk) {
+        result.add(p);
+      }
+    }
+    return result;
   }
 
   @override

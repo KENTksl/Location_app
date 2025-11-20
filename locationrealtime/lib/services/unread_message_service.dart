@@ -107,26 +107,33 @@ class UnreadMessageService {
       final data = snapshot.value as List?;
       if (data == null) return;
 
+      // BẢO TOÀN CÁC TRƯỜNG TÙY CHỈNH: không serialize lại qua ChatMessage
+      // để tránh mất các key như 'type', 'place' của tin nhắn đặc biệt.
       List<Map<String, dynamic>> updatedMessages = [];
       bool hasUpdates = false;
-      
+
       for (final msgData in data.whereType<Map>()) {
-        final message = ChatMessage.fromJson(Map<String, dynamic>.from(msgData));
-        
-        // Chỉ cập nhật tin nhắn từ người khác và chưa được đọc
-        if (message.from != user.uid && !message.isReadBy(user.uid)) {
-          Map<String, bool> readBy = Map<String, bool>.from(message.readBy ?? {});
-          readBy[user.uid] = true;
-          
-          final updatedMessage = message.copyWith(readBy: readBy);
-          updatedMessages.add(updatedMessage.toJson());
-          hasUpdates = true;
-        } else {
-          updatedMessages.add(message.toJson());
+        final raw = Map<String, dynamic>.from(msgData);
+        final from = raw['from']?.toString() ?? '';
+
+        // Lấy readBy hiện có, nếu chưa có thì tạo mới
+        Map<String, bool> readBy = {};
+        final existingReadBy = raw['readBy'];
+        if (existingReadBy is Map) {
+          readBy = Map<String, bool>.from(existingReadBy.map((k, v) => MapEntry(k.toString(), v == true)));
         }
+
+        // Chỉ cập nhật tin nhắn từ người khác và chưa được đọc
+        final alreadyRead = readBy[user.uid] == true;
+        if (from != user.uid && !alreadyRead) {
+          readBy[user.uid] = true;
+          raw['readBy'] = readBy; // cập nhật trực tiếp vào raw map, giữ nguyên các field khác
+          hasUpdates = true;
+        }
+
+        updatedMessages.add(raw);
       }
-      
-      // Chỉ cập nhật nếu có thay đổi
+
       if (hasUpdates) {
         await ref.set(updatedMessages);
       }

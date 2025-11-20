@@ -6,11 +6,9 @@ class AuthService {
   final FirebaseAuth _auth;
   final FirebaseDatabase _database;
 
-  AuthService({
-    FirebaseAuth? auth,
-    FirebaseDatabase? database,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-        _database = database ?? FirebaseDatabase.instance;
+  AuthService({FirebaseAuth? auth, FirebaseDatabase? database})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _database = database ?? FirebaseDatabase.instance;
 
   // Đăng ký
   Future<app_user.User?> signUp(String email, String password) async {
@@ -26,6 +24,7 @@ class AuthService {
           id: user.uid,
           email: user.email ?? '',
           createdAt: DateTime.now(),
+          proActive: false,
         );
 
         // Lưu thông tin user vào Realtime Database
@@ -60,6 +59,7 @@ class AuthService {
             id: user.uid,
             email: user.email ?? '',
             createdAt: DateTime.now(),
+            proActive: false,
           );
           await userRef.set(appUser.toJson());
           return appUser;

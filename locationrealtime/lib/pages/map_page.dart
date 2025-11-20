@@ -99,6 +99,29 @@ class _MapPageState extends State<MapPage> {
   @override
   void initState() {
     super.initState();
+    // Đăng ký lắng nghe yêu cầu focus và đọc giá trị hiện có TRƯỚC khi
+    // gọi _getCurrentLocation để tránh việc auto-center ghi đè.
+    MapNavigationService.instance.focusRequest.addListener(() {
+      final target = MapNavigationService.instance.focusRequest.value;
+      if (target != null) {
+        if (mapController != null) {
+          mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 17));
+        } else {
+          _pendingFocus = target;
+        }
+      }
+    });
+    final existingTargetOnInit = MapNavigationService.instance.focusRequest.value;
+    if (existingTargetOnInit != null) {
+      if (mapController != null) {
+        mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(existingTargetOnInit, 17),
+        );
+      } else {
+        _pendingFocus = existingTargetOnInit;
+      }
+    }
+
     _getCurrentLocation();
     _loadFriendsData();
     _loadMyAvatar();
@@ -117,17 +140,7 @@ class _MapPageState extends State<MapPage> {
       });
     }
 
-    // Listen to external focus requests (Favorite Places)
-    MapNavigationService.instance.focusRequest.addListener(() {
-      final target = MapNavigationService.instance.focusRequest.value;
-      if (target != null) {
-        if (mapController != null) {
-          mapController!.animateCamera(CameraUpdate.newLatLngZoom(target, 17));
-        } else {
-          _pendingFocus = target;
-        }
-      }
-    });
+    // Listener và giá trị hiện có đã được xử lý ở đầu initState
 
     // Listen to favorite places and render markers
     _favoriteController = Provider.of<FavoritePlacesController>(context, listen: false);
@@ -582,9 +595,15 @@ class _MapPageState extends State<MapPage> {
 
       if (mounted && mapController != null) {
         try {
-          mapController?.animateCamera(
-            CameraUpdate.newLatLng(LatLng(pos.latitude, pos.longitude)),
-          );
+          // Nếu đang có yêu cầu focus đến địa điểm khác, bỏ qua việc
+          // dịch camera về vị trí của tôi để tránh ghi đè.
+          final hasFocusTarget = _pendingFocus != null ||
+              MapNavigationService.instance.focusRequest.value != null;
+          if (!hasFocusTarget) {
+            mapController?.animateCamera(
+              CameraUpdate.newLatLng(LatLng(pos.latitude, pos.longitude)),
+            );
+          }
         } catch (e) {
           print('Lỗi di chuyển camera: $e');
         }
@@ -606,13 +625,19 @@ class _MapPageState extends State<MapPage> {
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    if (_currentPosition != null) {
+    // Nếu đang có yêu cầu focus, không dịch camera về vị trí hiện tại
+    final hasFocusTarget = _pendingFocus != null ||
+        MapNavigationService.instance.focusRequest.value != null;
+    if (!hasFocusTarget && _currentPosition != null) {
       mapController?.moveCamera(CameraUpdate.newLatLng(_currentPosition!));
     }
     if (_pendingFocus != null) {
       mapController?.animateCamera(CameraUpdate.newLatLngZoom(_pendingFocus!, 17));
       _pendingFocus = null;
     }
+
+    // Đảm bảo các dữ liệu bạn bè, vị trí, v.v. được khởi tạo sau khi controller sẵn sàng
+    _initializeMap();
   }
 
   Future<void> _showFriendOnMap(String friendId, String friendEmail) async {
@@ -853,10 +878,7 @@ class _MapPageState extends State<MapPage> {
       body: Stack(
         children: [
           GoogleMap(
-            onMapCreated: (GoogleMapController controller) {
-              mapController = controller;
-              _initializeMap();
-            },
+            onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
               target: _defaultCenter,
               zoom: 15.0,

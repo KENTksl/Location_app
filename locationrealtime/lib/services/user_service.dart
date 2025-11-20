@@ -97,6 +97,30 @@ class UserService {
     }
   }
 
+  // Đặt trạng thái ProActive cho user
+  Future<void> setProActive(String userId, bool active) async {
+    try {
+      await _database.ref('users/$userId/proActive').set(active);
+    } catch (e) {
+      print('Error setting proActive: $e');
+    }
+  }
+
+  // Kiểm tra trạng thái ProActive của user
+  Future<bool> isProActive(String userId) async {
+    try {
+      final snap = await _database.ref('users/$userId/proActive').get();
+      final v = snap.value;
+      if (v is bool) return v;
+      if (v is String) return v.toLowerCase() == 'true';
+      if (v is num) return v != 0;
+      return false;
+    } catch (e) {
+      print('Error getting proActive: $e');
+      return false;
+    }
+  }
+
   // Kiểm tra quyền vị trí
   Future<bool> checkLocationPermission() async {
     try {

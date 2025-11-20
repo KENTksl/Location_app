@@ -23,6 +23,8 @@ import 'favorite_place_picker_page.dart';
 import '../models/favorite_place.dart';
 import 'main_navigation_page.dart';
 import '../services/toast_service.dart';
+import '../services/user_service.dart';
+import 'pro_upgrade_page.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -52,6 +54,91 @@ class _UserProfilePageState extends State<UserProfilePage>
   bool _pressHistory = false;
   bool _pressLogout = false;
   bool _favoritesLoadedOnce = false;
+  bool _proActive = false;
+  StreamSubscription? _proActiveSubscription;
+  bool _upgradingPro = false;
+  Future<bool> _isProActive() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return false;
+      final snap = await FirebaseDatabase.instance
+          .ref('users/$uid/proActive')
+          .get();
+      final v = snap.value;
+      if (v is bool) return v;
+      if (v is String) return v.toLowerCase() == 'true';
+      if (v is num) return v != 0;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _upgradePro() async {
+    if (_upgradingPro) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ToastService.show(
+        context,
+        message: 'Không tìm thấy người dùng.',
+        type: AppToastType.error,
+      );
+      return;
+    }
+    setState(() => _upgradingPro = true);
+    try {
+      final svc = UserService();
+      await svc.setProActive(uid, true);
+      ToastService.show(
+        context,
+        message: 'Đã kích hoạt Pro cho tài khoản của bạn.',
+        type: AppToastType.success,
+      );
+      setState(() => _proActive = true);
+    } catch (e) {
+      ToastService.show(
+        context,
+        message: 'Kích hoạt thất bại: $e',
+        type: AppToastType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _upgradingPro = false);
+    }
+  }
+
+  void _listenProActive() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final initial = await FirebaseDatabase.instance
+          .ref('users/$uid/proActive')
+          .get();
+      final v = initial.value;
+      bool active = false;
+      if (v is bool)
+        active = v;
+      else if (v is String)
+        active = v.toLowerCase() == 'true';
+      else if (v is num)
+        active = v != 0;
+      if (mounted) setState(() => _proActive = active);
+    } catch (_) {}
+    _proActiveSubscription?.cancel();
+    _proActiveSubscription = FirebaseDatabase.instance
+        .ref('users/$uid/proActive')
+        .onValue
+        .listen((event) {
+          final v = event.snapshot.value;
+          bool active = false;
+          if (v is bool)
+            active = v;
+          else if (v is String)
+            active = v.toLowerCase() == 'true';
+          else if (v is num)
+            active = v != 0;
+          if (mounted) setState(() => _proActive = active);
+        });
+  }
 
   @override
   void initState() {
@@ -62,20 +149,21 @@ class _UserProfilePageState extends State<UserProfilePage>
     _loadStats();
     _generateAvailableAvatars();
     _listenToFriendRequests();
+    _listenProActive();
     // Show permission guidance if first time entering Profile
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _maybeShowPermissionBottomSheet();
-        // Ensure favorite places are loaded after auth is ready
-        if (!_favoritesLoadedOnce) {
-          _favoritesLoadedOnce = true;
-          // Call load() via provider to refresh list when opening profile
-          try {
-            context.read<FavoritePlacesController>().load();
-            // Bắt đầu lắng nghe realtime để phản ánh xoá/thêm ngay lập tức
-            context.read<FavoritePlacesController>().startListening();
-          } catch (_) {}
-        }
-      });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowPermissionBottomSheet();
+      // Ensure favorite places are loaded after auth is ready
+      if (!_favoritesLoadedOnce) {
+        _favoritesLoadedOnce = true;
+        // Call load() via provider to refresh list when opening profile
+        try {
+          context.read<FavoritePlacesController>().load();
+          // Bắt đầu lắng nghe realtime để phản ánh xoá/thêm ngay lập tức
+          context.read<FavoritePlacesController>().startListening();
+        } catch (_) {}
+      }
+    });
   }
 
   @override
@@ -83,6 +171,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     _locationTimer?.cancel();
     _backgroundTimer?.cancel();
     _locationSubscription?.cancel();
+    _proActiveSubscription?.cancel();
     super.dispose();
   }
 
@@ -99,91 +188,130 @@ class _UserProfilePageState extends State<UserProfilePage>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       builder: (ctx) {
         bool pressPrimary = false;
-        return StatefulBuilder(builder: (context, setBSState) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: AppTheme.primaryGradient,
-                      boxShadow: AppTheme.buttonShadow,
+        return StatefulBuilder(
+          builder: (context, setBSState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: AppTheme.primaryGradient,
+                        boxShadow: AppTheme.buttonShadow,
+                      ),
+                      child: const Icon(
+                        Icons.location_pin,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
-                    child: const Icon(Icons.location_pin, color: Colors.white, size: 40),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Center(
-                  child: Text(
-                    'Bật chia sẻ vị trí?',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1e293b)),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text(
+                      'Bật chia sẻ vị trí?',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1e293b),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Ứng dụng cần quyền truy cập vị trí để chia sẻ với bạn bè theo thời gian thực.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF64748b)),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTapDown: (_) => setBSState(() => pressPrimary = true),
-                        onTapCancel: () => setBSState(() => pressPrimary = false),
-                        onTapUp: (_) => setBSState(() => pressPrimary = false),
-                        onTap: () async {
-                          if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Đã bật hướng dẫn chia sẻ vị trí.')),
-                          );
-                        },
-                        child: AnimatedScale(
-                          scale: pressPrimary ? 0.97 : 1.0,
-                          duration: const Duration(milliseconds: 120),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                            decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
-                              borderRadius: BorderRadius.circular(30),
-                              boxShadow: AppTheme.buttonShadow,
-                            ),
-                            child: const Center(
-                              child: Text('Bật ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Ứng dụng cần quyền truy cập vị trí để chia sẻ với bạn bè theo thời gian thực.',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF64748b)),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTapDown: (_) =>
+                              setBSState(() => pressPrimary = true),
+                          onTapCancel: () =>
+                              setBSState(() => pressPrimary = false),
+                          onTapUp: (_) =>
+                              setBSState(() => pressPrimary = false),
+                          onTap: () async {
+                            if (Navigator.of(ctx).canPop())
+                              Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Đã bật hướng dẫn chia sẻ vị trí.',
+                                ),
+                              ),
+                            );
+                          },
+                          child: AnimatedScale(
+                            scale: pressPrimary ? 0.97 : 1.0,
+                            duration: const Duration(milliseconds: 120),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: AppTheme.primaryGradient,
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: AppTheme.buttonShadow,
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'Bật ngay',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          side: const BorderSide(color: Color(0xFFE2E8F0), width: 2),
-                          foregroundColor: const Color(0xFF1e293b),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            side: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                              width: 2,
+                            ),
+                            foregroundColor: const Color(0xFF1e293b),
+                          ),
+                          onPressed: () {
+                            if (Navigator.of(ctx).canPop())
+                              Navigator.of(ctx).pop();
+                          },
+                          child: const Text(
+                            'Để sau',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        onPressed: () {
-                          if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
-                        },
-                        child: const Text('Để sau', style: TextStyle(fontWeight: FontWeight.w600)),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          );
-        });
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
       },
     );
   }
@@ -989,6 +1117,140 @@ class _UserProfilePageState extends State<UserProfilePage>
                               color: Color(0xFF64748b),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.workspace_premium_outlined,
+                                color: _proActive
+                                    ? const Color(0xFF10b981)
+                                    : const Color(0xFF64748b),
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Trạng thái Pro',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF1e293b),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _proActive
+                                      ? const Color(
+                                          0xFF10b981,
+                                        ).withOpacity(0.12)
+                                      : const Color(0xFFE5E7EB),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: _proActive
+                                        ? const Color(
+                                            0xFF10b981,
+                                          ).withOpacity(0.6)
+                                        : const Color(0xFFCBD5E1),
+                                  ),
+                                ),
+                                child: Text(
+                                  _proActive
+                                      ? 'Đã kích hoạt'
+                                      : 'Chưa kích hoạt',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _proActive
+                                        ? const Color(0xFF065F46)
+                                        : const Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (!_proActive)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const ProUpgradePage(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7C3AED),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.workspace_premium_rounded,
+                                ),
+                                label: const Text('Nâng cấp Pro'),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Icon(
+                                _isSharing
+                                    ? Icons.location_on_outlined
+                                    : Icons.location_off_outlined,
+                                color: _isSharing
+                                    ? Colors.green
+                                    : const Color(0xFF64748b),
+                                size: 22,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Chia sẻ vị trí',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF1e293b),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Spacer(),
+                              Switch(
+                                value: _isSharing,
+                                onChanged: _loading ? null : _toggleShare,
+                                activeColor: const Color(0xFF667eea),
+                              ),
+                              if (_loading)
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _status.isNotEmpty
+                                ? _status
+                                : (_isSharing
+                                      ? 'Đang chia sẻ vị trí'
+                                      : 'Tắt chia sẻ vị trí'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748b),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1036,16 +1298,29 @@ class _UserProfilePageState extends State<UserProfilePage>
                                 ),
                               ),
                               TextButton.icon(
-                                onPressed: () {
+                                onPressed: () async {
+                                  final isPro = await _isProActive();
+                                  if (!isPro) {
+                                    ToastService.show(
+                                      context,
+                                      message:
+                                          'Tính năng thêm địa điểm yêu thích chỉ dành cho người dùng Pro.',
+                                      type: AppToastType.warning,
+                                    );
+                                    return;
+                                  }
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => const FavoritePlacePickerPage(),
+                                      builder: (_) =>
+                                          const FavoritePlacePickerPage(),
                                     ),
                                   ).then((result) {
                                     // Làm mới danh sách sau khi quay lại từ trang chọn địa điểm
                                     try {
-                                      context.read<FavoritePlacesController>().load();
+                                      context
+                                          .read<FavoritePlacesController>()
+                                          .load();
                                     } catch (_) {}
                                     // Hiển thị toast ở trang Hồ sơ để đảm bảo overlay còn tồn tại
                                     if (result is FavoritePlace && mounted) {
@@ -1057,7 +1332,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                                     }
                                   });
                                 },
-                                icon: const Icon(Icons.add_location_alt_rounded),
+                                icon: const Icon(
+                                  Icons.add_location_alt_rounded,
+                                ),
                                 label: const Text('Thêm'),
                               ),
                             ],
@@ -1067,7 +1344,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                             const Center(
                               child: Padding(
                                 padding: EdgeInsets.symmetric(vertical: 12),
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           else if (favCtrl.places.isEmpty)
@@ -1083,7 +1362,8 @@ class _UserProfilePageState extends State<UserProfilePage>
                               itemCount: favCtrl.places.length,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (ctx, i) {
                                 final p = favCtrl.places[i];
                                 return Container(
@@ -1102,22 +1382,31 @@ class _UserProfilePageState extends State<UserProfilePage>
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.place_rounded, color: AppTheme.primaryColor),
+                                      const Icon(
+                                        Icons.place_rounded,
+                                        color: AppTheme.primaryColor,
+                                      ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               p.name,
-                                              style: const TextStyle(fontWeight: FontWeight.w600),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
                                               p.address,
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748b)),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Color(0xFF64748b),
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -1127,11 +1416,16 @@ class _UserProfilePageState extends State<UserProfilePage>
                                         icon: const Icon(Icons.map_rounded),
                                         onPressed: () {
                                           MapNavigationService.instance
-                                              .requestFocus(LatLng(p.lat, p.lng));
+                                              .requestFocus(
+                                                LatLng(p.lat, p.lng),
+                                              );
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => const MainNavigationPage(selectedTab: 0),
+                                              builder: (_) =>
+                                                  const MainNavigationPage(
+                                                    selectedTab: 0,
+                                                  ),
                                             ),
                                           );
                                         },
@@ -1144,29 +1438,46 @@ class _UserProfilePageState extends State<UserProfilePage>
                                             context: context,
                                             builder: (ctx) => AlertDialog(
                                               title: const Text('Xóa địa điểm'),
-                                              content: Text('Bạn có chắc muốn xóa "${p.name}"?'),
+                                              content: Text(
+                                                'Bạn có chắc muốn xóa "${p.name}"?',
+                                              ),
                                               actions: [
                                                 TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, false),
                                                   child: const Text('Hủy'),
                                                 ),
                                                 TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
+                                                  child: const Text(
+                                                    'Xóa',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           );
                                           if (confirm == true) {
                                             try {
-                                              final controller = context.read<FavoritePlacesController>();
-                                              await controller.deletePlace(p.id);
+                                              final controller = context
+                                                  .read<
+                                                    FavoritePlacesController
+                                                  >();
+                                              await controller.deletePlace(
+                                                p.id,
+                                              );
                                               // Đồng bộ lại danh sách từ Firestore để đảm bảo UI cập nhật tức thì
                                               await controller.load();
                                               if (mounted) {
                                                 // Nếu bản đồ đang focus vào địa điểm này, hãy xóa trạng thái focus
-                                                MapNavigationService.instance.clearFocus();
-                                                setState(() {}); // ép rebuild giao diện
+                                                MapNavigationService.instance
+                                                    .clearFocus();
+                                                setState(
+                                                  () {},
+                                                ); // ép rebuild giao diện
                                                 ToastService.show(
                                                   context,
                                                   message: 'Đã xóa địa điểm',
@@ -1196,108 +1507,7 @@ class _UserProfilePageState extends State<UserProfilePage>
 
                     const SizedBox(height: 14),
 
-                    // Location Sharing Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.10),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                _isSharing
-                                    ? Icons.location_on_outlined
-                                    : Icons.location_off_outlined,
-                                color: _isSharing ? Colors.green : Colors.grey,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Chia sẻ vị trí',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1e293b),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _status ?? 'Bật để chia sẻ vị trí với bạn bè',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF64748b),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Switch(
-                                value: _isSharing,
-                                onChanged: _loading ? null : _toggleShare,
-                                activeColor: const Color(0xFF667eea),
-                              ),
-                              const Spacer(),
-                              if (_loading)
-                                const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (_isSharing)
-                            Container(
-                              margin: const EdgeInsets.only(top: 10),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10b981).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(
-                                    0xFF10b981,
-                                  ).withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.lightbulb_outline,
-                                    color: Color(0xFF10b981),
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '💡 Khi bật, vị trí sẽ được chia sẻ ngay cả khi tắt app',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF10b981),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
+                    // Location Sharing Card (đã chuyển lên khung thông tin người dùng)
                     const SizedBox(height: 14),
 
                     // Friend Requests Card (Solid white card + gradient pill)

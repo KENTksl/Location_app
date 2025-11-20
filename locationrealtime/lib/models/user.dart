@@ -6,6 +6,7 @@ class User {
   final bool? isSharingLocation;
   final bool? alwaysShareLocation;
   final Map<String, dynamic>? location;
+  final bool? proActive;
 
   User({
     required this.id,
@@ -15,6 +16,7 @@ class User {
     this.isSharingLocation,
     this.alwaysShareLocation,
     this.location,
+    this.proActive,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,9 @@ class User {
       isSharingLocation: json['isSharingLocation'],
       alwaysShareLocation: json['alwaysShareLocation'],
       location: json['location'],
+      proActive: (json['proActive'] is bool)
+          ? json['proActive'] as bool
+          : (json['proActive'] == null ? false : false),
     );
   }
 
@@ -40,6 +45,7 @@ class User {
       'isSharingLocation': isSharingLocation,
       'alwaysShareLocation': alwaysShareLocation,
       'location': location,
+      'proActive': proActive ?? false,
     };
   }
 
@@ -51,6 +57,7 @@ class User {
     bool? isSharingLocation,
     bool? alwaysShareLocation,
     Map<String, dynamic>? location,
+    bool? proActive,
   }) {
     return User(
       id: id ?? this.id,
@@ -60,6 +67,7 @@ class User {
       isSharingLocation: isSharingLocation ?? this.isSharingLocation,
       alwaysShareLocation: alwaysShareLocation ?? this.alwaysShareLocation,
       location: location ?? this.location,
+      proActive: proActive ?? this.proActive,
     );
   }
 }
