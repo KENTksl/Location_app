@@ -104,6 +104,7 @@ class _ProUpgradePageState extends State<ProUpgradePage> {
                   SizedBox(height: 6),
                   Text('• Chia sẻ địa điểm yêu thích trong chat'),
                   Text('• Lưu địa điểm yêu thích không giới hạn'),
+                  Text('• Kết bạn không giới giạn'),
                   Text('• Ưu tiên cập nhật vị trí'),
                 ],
               ),

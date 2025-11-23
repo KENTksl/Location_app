@@ -20,6 +20,9 @@ import '../models/favorite_place.dart';
 import '../services/map_navigation_service.dart';
 import 'main_navigation_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
+import '../services/location_history_service.dart';
+import '../models/location_history.dart';
+import 'location_history_page.dart';
 
 class ChatPage extends StatefulWidget {
   final String friendId;
@@ -55,6 +58,8 @@ class _ChatPageState extends State<ChatPage> {
   String _displayName = '';
   // Tránh double-tap tạo trùng khi lưu địa điểm
   final Set<String> _savingPlacesKeys = <String>{};
+  // Dịch vụ lộ trình để chia sẻ và nhập lộ trình
+  final LocationHistoryService _routeService = LocationHistoryService();
   Future<bool> _isProActive() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -489,6 +494,13 @@ class _ChatPageState extends State<ChatPage> {
     if ((type == 'favorite_place' || placeDyn is Map) && placeDyn is Map) {
       final Map place = placeDyn as Map;
       return _buildFavoritePlaceMessage(place, isMe, time, avatarUrl, label);
+    }
+
+    // Hiển thị tin nhắn chia sẻ lộ trình
+    final dynamic routeDataDyn = msg['routeData'];
+    if (type == 'route_share' && routeDataDyn is Map) {
+      final Map routeData = Map<String, dynamic>.from(routeDataDyn as Map);
+      return _buildRouteMessage(routeData, isMe, time, avatarUrl, label);
     }
 
     return Padding(
@@ -1049,7 +1061,7 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   const SizedBox(width: AppTheme.spacingS),
-                  // Nút chia sẻ địa điểm yêu thích
+                  // Nút chia sẻ "..." gộp địa điểm yêu thích và lộ trình
                   Container(
                     decoration: BoxDecoration(
                       gradient: AppTheme.primaryGradient,
@@ -1064,11 +1076,11 @@ class _ChatPageState extends State<ChatPage> {
                         borderRadius: BorderRadius.circular(
                           AppTheme.borderRadiusM,
                         ),
-                        onTap: _openShareFavoritePlaceSheet,
+                        onTap: _openShareMenuSheet,
                         child: Padding(
                           padding: const EdgeInsets.all(AppTheme.spacingM),
                           child: const Icon(
-                            Icons.place_rounded,
+                            Icons.more_horiz,
                             color: Colors.white,
                             size: 24,
                           ),
@@ -1115,5 +1127,379 @@ class _ChatPageState extends State<ChatPage> {
   // Đánh dấu tất cả tin nhắn là đã đọc
   void _markMessagesAsRead() {
     _unreadMessageService.markAllAsRead(widget.friendId);
+  }
+
+  // Mở sheet gộp chia sẻ
+  void _openShareMenuSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              const Text(
+                'Chia sẻ',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.place_rounded, color: Colors.blue),
+                title: const Text('Địa điểm yêu thích'),
+                subtitle: const Text('Gửi địa điểm bạn đã lưu'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openShareFavoritePlaceSheet();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.alt_route_rounded, color: Colors.deepPurple),
+                title: const Text('Lộ trình đã ghi'),
+                subtitle: const Text('Gửi lộ trình cho bạn bè xem'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openShareRouteSheet();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Mở sheet chọn lộ trình để chia sẻ
+  Future<void> _openShareRouteSheet() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ToastService.show(
+        context,
+        message: 'Bạn cần đăng nhập để chia sẻ lộ trình.',
+        type: AppToastType.error,
+      );
+      return;
+    }
+
+    // Lấy routes từ local + Firebase, loại trùng theo id
+    final localRoutes = await _routeService.getRoutesLocally();
+    final cloudRoutes = await _routeService.getRoutesFromFirebase();
+    final Map<String, LocationRoute> routeById = {};
+    for (final r in [...localRoutes, ...cloudRoutes]) {
+      routeById[r.id] = r;
+    }
+    final routes = routeById.values.toList()
+      ..sort((a, b) => (b.endTime ?? b.startTime).compareTo(a.endTime ?? a.startTime));
+
+    if (routes.isEmpty) {
+      ToastService.show(
+        context,
+        message: 'Bạn chưa có lộ trình nào để chia sẻ.',
+        type: AppToastType.warning,
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      builder: (ctx) {
+        return SafeArea(
+          child: SizedBox(
+            height: 420,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                const Text(
+                  'Chia sẻ lộ trình',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: routes.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (ctx2, i) {
+                      final r = routes[i];
+                      final duration = r.totalDuration;
+                      final hours = duration.inHours;
+                      final minutes = duration.inMinutes % 60;
+                      final distanceKm = r.totalDistance;
+                      final timeStr = DateFormat('dd/MM/yyyy HH:mm').format(r.startTime);
+                      return ListTile(
+                        leading: const Icon(Icons.alt_route_rounded),
+                        title: Text(r.name.isNotEmpty ? r.name : 'Lộ trình ${r.id}'),
+                        subtitle: Text('$timeStr • ${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m'),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _sendRouteMessage(r);
+                          },
+                          child: const Text('Gửi'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Gửi tin nhắn lộ trình
+  Future<void> _sendRouteMessage(LocationRoute route) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ToastService.show(
+        context,
+        message: 'Bạn cần đăng nhập để chia sẻ lộ trình.',
+        type: AppToastType.error,
+      );
+      return;
+    }
+    try {
+      final ref = FirebaseDatabase.instance.ref('chats/$_chatId/messages');
+      final snap = await ref.get();
+      List msgs = [];
+      if (snap.exists && snap.value is List) {
+        msgs = List.from(snap.value as List);
+      }
+      if (msgs.length >= 30) {
+        msgs = msgs.sublist(msgs.length - 29);
+      }
+      final routeData = _routeService.exportRouteData(route);
+      msgs.add({
+        'from': user.uid,
+        'type': 'route_share',
+        'routeData': routeData,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      await ref.set(msgs);
+      ToastService.show(
+        context,
+        message: 'Đã chia sẻ lộ trình',
+        type: AppToastType.success,
+      );
+    } catch (e) {
+      ToastService.show(
+        context,
+        message: 'Không thể chia sẻ lộ trình. Vui lòng thử lại.',
+        type: AppToastType.error,
+      );
+    }
+  }
+
+  // UI hiển thị tin nhắn lộ trình
+  Widget _buildRouteMessage(
+    Map routeData,
+    bool isMe,
+    String time,
+    String? avatarUrl,
+    String label,
+  ) {
+    // routeData: { route: {...}, exportedAt, version }
+    final routeJson = Map<String, dynamic>.from(routeData['route'] as Map);
+    final route = LocationRoute.fromJson(routeJson);
+
+    final duration = route.totalDuration;
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    final distanceKm = route.totalDistance;
+    final title = route.name.isNotEmpty ? route.name : 'Lộ trình ${route.id}';
+
+    // Người gửi: hiển thị thẻ lộ trình có thể chạm để mở chi tiết
+    if (isMe) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RouteDetailsPage(route: route),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.all(AppTheme.spacingM),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.alt_route_rounded, size: 18, color: Colors.deepPurple),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: AppTheme.bodyStyle.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
+                            style: AppTheme.captionStyle.copyWith(
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                time,
+                                style: AppTheme.captionStyle.copyWith(
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                'Chạm để xem chi tiết',
+                                style: AppTheme.captionStyle.copyWith(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildAvatarWidget(avatarUrl, label),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Người nhận: hiển thị chi tiết, KHÔNG có nút tương tác
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _buildAvatarWidget(avatarUrl, label),
+          ),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RouteDetailsPage(route: route),
+                      ),
+                    );
+                  },
+                  child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.all(AppTheme.spacingM),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.alt_route_rounded, size: 18, color: Colors.deepPurple),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: AppTheme.bodyStyle.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
+                        style: AppTheme.captionStyle.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text(
+                            time,
+                            style: AppTheme.captionStyle.copyWith(
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Chạm để xem chi tiết',
+                            style: AppTheme.captionStyle.copyWith(
+                              color: AppTheme.textSecondaryColor,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

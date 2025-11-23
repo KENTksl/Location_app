@@ -55,6 +55,78 @@ class _FriendRequestsPageState extends State<FriendRequestsPage> {
     if (userId == null) return;
 
     try {
+      // Kiểm tra giới hạn bạn bè cho cả hai phía
+      // Kiểm tra người dùng hiện tại
+      final curProSnap = await FirebaseDatabase.instance
+          .ref('users/$userId/proActive')
+          .get();
+      bool curIsPro = false;
+      final curProVal = curProSnap.value;
+      if (curProVal is bool) {
+        curIsPro = curProVal;
+      } else if (curProVal is String) {
+        curIsPro = curProVal.toLowerCase() == 'true';
+      } else if (curProVal is num) {
+        curIsPro = curProVal != 0;
+      }
+
+      int curFriendCount = 0;
+      if (!curIsPro) {
+        final curFriendsSnap = await FirebaseDatabase.instance
+            .ref('users/$userId/friends')
+            .get();
+        if (curFriendsSnap.exists && curFriendsSnap.value is Map) {
+          curFriendCount = (curFriendsSnap.value as Map).length;
+        }
+        if (curFriendCount >= 3) {
+          _status =
+              'Bạn đã đạt giới hạn 3 bạn. Nâng cấp VIP để kết bạn không giới hạn.';
+          ToastService.show(
+            context,
+            message:
+                'Không thể xác nhận: bạn đã đạt giới hạn 3 bạn (chỉ VIP không giới hạn).',
+            type: AppToastType.warning,
+          );
+          setState(() {});
+          return;
+        }
+      }
+
+      // Kiểm tra phía người gửi (đối phương)
+      final otherProSnap = await FirebaseDatabase.instance
+          .ref('users/$fromUserId/proActive')
+          .get();
+      bool otherIsPro = false;
+      final otherProVal = otherProSnap.value;
+      if (otherProVal is bool) {
+        otherIsPro = otherProVal;
+      } else if (otherProVal is String) {
+        otherIsPro = otherProVal.toLowerCase() == 'true';
+      } else if (otherProVal is num) {
+        otherIsPro = otherProVal != 0;
+      }
+
+      if (!otherIsPro) {
+        final otherFriendsSnap = await FirebaseDatabase.instance
+            .ref('users/$fromUserId/friends')
+            .get();
+        int otherFriendCount = 0;
+        if (otherFriendsSnap.exists && otherFriendsSnap.value is Map) {
+          otherFriendCount = (otherFriendsSnap.value as Map).length;
+        }
+        if (otherFriendCount >= 3) {
+          _status =
+              'Đối phương đã đạt giới hạn 3 bạn. Họ cần nâng cấp VIP để thêm bạn mới.';
+          ToastService.show(
+            context,
+            message:
+                'Không thể xác nhận: đối phương đã đạt giới hạn 3 bạn.',
+            type: AppToastType.warning,
+          );
+          setState(() {});
+          return;
+        }
+      }
       // Thêm vào danh sách bạn bè của cả hai
       await FirebaseDatabase.instance
           .ref('users/$userId/friends/$fromUserId')

@@ -614,21 +614,55 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
               ),
             ),
             const SizedBox(width: 10),
-            // Actions
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.visibility),
-                  onPressed: () => _showRouteDetails(route),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+            // Actions (gộp vào menu ...)
+            PopupMenuButton<String>(
+              tooltip: 'Tùy chọn',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'view':
+                    _showRouteDetails(route);
+                    break;
+                  case 'rename':
+                    _renameRoute(route);
+                    break;
+                  case 'delete':
+                    _deleteRoute(route);
+                    break;
+                  default:
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.visibility, size: 18),
+                      SizedBox(width: 8),
+                      Text('Xem chi tiết'),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteRoute(route),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                PopupMenuItem(
+                  value: 'rename',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.edit, size: 18),
+                      SizedBox(width: 8),
+                      Text('Đổi tên'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: const [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Xóa', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -669,6 +703,53 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
               );
             },
             child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _renameRoute(LocationRoute route) {
+    final controller = TextEditingController(text: route.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Đổi tên lộ trình'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Nhập tên mới',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tên lộ trình không được để trống'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(context);
+              await _service.renameRoute(route.id, newName);
+              _loadData();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã đổi tên lộ trình'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Lưu'),
           ),
         ],
       ),

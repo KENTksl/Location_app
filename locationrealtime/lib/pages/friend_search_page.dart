@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../theme.dart';
+import '../services/toast_service.dart';
 
 class FriendSearchPage extends StatefulWidget {
   const FriendSearchPage({super.key});
@@ -61,6 +62,50 @@ class _FriendSearchPageState extends State<FriendSearchPage> {
     setState(() {
       _loading = true;
     });
+    // Kiểm tra giới hạn bạn bè cho tài khoản không VIP
+    try {
+      final proSnap = await FirebaseDatabase.instance
+          .ref('users/$fromUserId/proActive')
+          .get();
+      final proVal = proSnap.value;
+      bool isPro = false;
+      if (proVal is bool) {
+        isPro = proVal;
+      } else if (proVal is String) {
+        isPro = proVal.toLowerCase() == 'true';
+      } else if (proVal is num) {
+        isPro = proVal != 0;
+      }
+      if (!isPro) {
+        final friendsSnap = await FirebaseDatabase.instance
+            .ref('users/$fromUserId/friends')
+            .get();
+        int friendCount = 0;
+        if (friendsSnap.exists && friendsSnap.value is Map) {
+          friendCount = (friendsSnap.value as Map).length;
+        }
+        if (friendCount >= 3) {
+          setState(() {
+            _status =
+                'Bạn đã đạt giới hạn 3 bạn. Nâng cấp PRO để thêm bạn không giới hạn.';
+            _loading = false;
+          });
+          ToastService.show(
+            context,
+            message:
+                'Giới hạn 3 bạn cho tài khoản không PRO. Hãy nâng cấp PRO.',
+            type: AppToastType.warning,
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      ToastService.show(
+        context,
+        message: 'Không kiểm tra được giới hạn bạn bè. Đang thử gửi lời mời...',
+        type: AppToastType.warning,
+      );
+    }
     await FirebaseDatabase.instance
         .ref('friend_requests/$toUserId/$fromUserId')
         .set(true);

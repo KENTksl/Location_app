@@ -439,6 +439,46 @@ class LocationHistoryService {
     }
   }
 
+  // Đổi tên route
+  Future<void> renameRoute(String routeId, String newName) async {
+    // Cập nhật ở local storage
+    final prefs = await SharedPreferences.getInstance();
+    final routesJson = prefs.getStringList(_routesKey) ?? [];
+    final updated = <String>[];
+    for (final jsonStr in routesJson) {
+      try {
+        final route = LocationRoute.fromJson(jsonDecode(jsonStr));
+        if (route.id == routeId) {
+          final renamed = LocationRoute(
+            id: route.id,
+            name: newName,
+            points: route.points,
+            startTime: route.startTime,
+            endTime: route.endTime,
+            totalDistance: route.totalDistance,
+            totalDuration: route.totalDuration,
+            description: route.description,
+            metadata: route.metadata,
+          );
+          updated.add(jsonEncode(renamed.toJson()));
+        } else {
+          updated.add(jsonStr);
+        }
+      } catch (_) {
+        updated.add(jsonStr);
+      }
+    }
+    await prefs.setStringList(_routesKey, updated);
+
+    // Cập nhật ở Firebase (chỉ cập nhật field name)
+    final user = _auth.currentUser;
+    if (user != null) {
+      await _database
+          .ref('users/${user.uid}/locationHistory/$routeId')
+          .update({'name': newName});
+    }
+  }
+
   // Export route data
   Map<String, dynamic> exportRouteData(LocationRoute route) {
     return {
