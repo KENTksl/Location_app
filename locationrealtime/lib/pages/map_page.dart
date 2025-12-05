@@ -499,12 +499,12 @@ class _MapPageState extends State<MapPage> {
                 _drawRouteToFriend(friendId, position);
               }
             } else {
-              print(
-                'Removing friend marker: $friendId - offline or stale data (lat=$lat, lng=$lng, isOnline=$isOnline, isSharing=$isSharing)',
-              );
-              setState(() {
-                _friendMarkers.remove(friendId);
-              });
+              final existing = _friendMarkers[friendId];
+              if (existing != null) {
+                setState(() {
+                  _friendMarkers[friendId] = existing;
+                });
+              }
             }
           } else {
             setState(() {
@@ -544,9 +544,21 @@ class _MapPageState extends State<MapPage> {
     }
 
     final from = _friendLastPositions[friendId] ?? existing.position;
-    final totalSteps = steps.clamp(5, 60);
+    final distanceMeters = Geolocator.distanceBetween(
+      from.latitude,
+      from.longitude,
+      newPos.latitude,
+      newPos.longitude,
+    );
+    int dynamicDuration = durationMs;
+    if (distanceMeters > 50) {
+      dynamicDuration = 1000;
+    } else if (distanceMeters > 5) {
+      dynamicDuration = 700;
+    }
+    final totalSteps = steps.clamp(20, 60);
     final stepDuration = Duration(
-      milliseconds: (durationMs / totalSteps).round(),
+      milliseconds: (dynamicDuration / totalSteps).round(),
     );
 
     // Hủy animation trước đó nếu có
