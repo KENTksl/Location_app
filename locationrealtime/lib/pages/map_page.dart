@@ -1621,6 +1621,46 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _startRouteRecording() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn cần đăng nhập để ghi lộ trình'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    try {
+      final snap = await FirebaseDatabase.instance
+          .ref('users/$uid/proActive')
+          .get();
+      final v = snap.value;
+      bool isPro = false;
+      if (v is bool)
+        isPro = v;
+      else if (v is String)
+        isPro = v.toLowerCase() == 'true';
+      else if (v is num)
+        isPro = v != 0;
+      if (!isPro) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tính năng ghi lộ trình chỉ dành cho người dùng Pro'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể xác minh trạng thái Pro'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     // Kiểm tra permission trước
     await _checkLocationPermission();
     if (!_hasLocationPermission) {

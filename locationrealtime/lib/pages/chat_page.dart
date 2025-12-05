@@ -1184,6 +1184,16 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
+    final isPro = await _isProActive();
+    if (!isPro) {
+      ToastService.show(
+        context,
+        message: 'Tính năng chia sẻ lộ trình chỉ dành cho người dùng Pro.',
+        type: AppToastType.warning,
+      );
+      return;
+    }
+
     // Lấy routes từ local + Firebase, loại trùng theo id
     final localRoutes = await _routeService.getRoutesLocally();
     final cloudRoutes = await _routeService.getRoutesFromFirebase();
@@ -1314,115 +1324,22 @@ class _ChatPageState extends State<ChatPage> {
     final distanceKm = route.totalDistance;
     final title = route.name.isNotEmpty ? route.name : 'Lộ trình ${route.id}';
 
-    // Người gửi: hiển thị thẻ lộ trình có thể chạm để mở chi tiết
-    if (isMe) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RouteDetailsPage(route: route),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 2),
-                      padding: const EdgeInsets.all(AppTheme.spacingM),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.alt_route_rounded, size: 18, color: Colors.deepPurple),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  style: AppTheme.bodyStyle.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
-                            style: AppTheme.captionStyle.copyWith(
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Text(
-                                time,
-                                style: AppTheme.captionStyle.copyWith(
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                'Chạm để xem chi tiết',
-                                style: AppTheme.captionStyle.copyWith(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: _buildAvatarWidget(avatarUrl, label),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Người nhận: hiển thị chi tiết, KHÔNG có nút tương tác
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: _buildAvatarWidget(avatarUrl, label),
-          ),
+          if (!isMe)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _buildAvatarWidget(avatarUrl, label),
+            ),
           Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 InkWell(
                   onTap: () {
@@ -1434,70 +1351,124 @@ class _ChatPageState extends State<ChatPage> {
                     );
                   },
                   child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 2),
-                  padding: const EdgeInsets.all(AppTheme.spacingM),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.alt_route_rounded, size: 18, color: Colors.deepPurple),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: AppTheme.bodyStyle.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textPrimaryColor,
+                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: isMe ? AppTheme.primaryGradient : null,
+                      color: isMe ? null : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: isMe
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: AppTheme.primaryGradient,
+                                boxShadow: AppTheme.buttonShadow,
+                              ),
+                              child: const Icon(
+                                Icons.alt_route_rounded,
+                                color: Colors.white,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
-                        style: AppTheme.captionStyle.copyWith(
-                          color: AppTheme.textSecondaryColor,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: TextStyle(
+                                      color: isMe
+                                          ? Colors.white
+                                          : AppTheme.textPrimaryColor,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
+                                    style: TextStyle(
+                                      color: isMe
+                                          ? Colors.white70
+                                          : AppTheme.textSecondaryColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Text(
-                            time,
-                            style: AppTheme.captionStyle.copyWith(
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Chạm để xem chi tiết',
-                            style: AppTheme.captionStyle.copyWith(
-                              color: AppTheme.textSecondaryColor,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (!isMe)
+                              TextButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => RouteDetailsPage(
+                                        route: route,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.remove_red_eye_outlined),
+                                label: const Text('Xem'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      time,
+                      style: AppTheme.captionStyle.copyWith(
+                        fontSize: 10,
+                        color: AppTheme.textPrimaryColor.withOpacity(0.75),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
+          if (isMe)
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildAvatarWidget(avatarUrl, label),
+            ),
         ],
       ),
     );
