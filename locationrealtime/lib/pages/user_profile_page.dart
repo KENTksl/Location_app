@@ -654,7 +654,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     // Bắt đầu theo dõi vị trí real-time (foreground only)
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Cập nhật khi di chuyển 5 mét
+      distanceFilter: 1, // Cập nhật khi di chuyển 1 mét để mượt hơn
       timeLimit: Duration(seconds: 30),
     );
 

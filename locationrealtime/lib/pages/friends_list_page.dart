@@ -552,9 +552,28 @@ class _FriendsListPageState extends State<FriendsListPage> {
     // Lắng nghe vị trí của bạn bè
     final subscription = locationRef.onValue.listen((event) {
       if (event.snapshot.exists && mounted) {
-        final data = event.snapshot.value as Map<dynamic, dynamic>;
-        final lat = data['latitude'] as double?;
-        final lng = data['longitude'] as double?;
+        final raw = event.snapshot.value;
+        if (raw is! Map) {
+          setState(() {
+            _friendDistances.remove(friendId);
+          });
+          return;
+        }
+        final data = raw as Map;
+        final latRaw = data['latitude'];
+        final lngRaw = data['longitude'];
+        double? lat;
+        double? lng;
+        if (latRaw is num) {
+          lat = latRaw.toDouble();
+        } else if (latRaw is String) {
+          lat = double.tryParse(latRaw);
+        }
+        if (lngRaw is num) {
+          lng = lngRaw.toDouble();
+        } else if (lngRaw is String) {
+          lng = double.tryParse(lngRaw);
+        }
         final isOnline = data['isOnline'] as bool? ?? false;
         final isSharing = data['isSharingLocation'] as bool? ?? false;
 

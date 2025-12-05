@@ -14,7 +14,8 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/painting.dart';
-import 'package:flutter/foundation.dart' show consolidateHttpClientResponseBytes;
+import 'package:flutter/foundation.dart'
+    show consolidateHttpClientResponseBytes;
 import 'package:flutter_svg/flutter_svg.dart' as svg;
 import '../models/location_history.dart';
 import '../services/location_history_service.dart';
@@ -52,16 +53,18 @@ class _MapPageState extends State<MapPage> {
       for (final p in places) {
         _markers.add(
           Marker(
-            markerId: MarkerId('fav_${p.id}')
-            ,
+            markerId: MarkerId('fav_${p.id}'),
             position: LatLng(p.lat, p.lng),
             infoWindow: InfoWindow(title: p.name, snippet: p.address),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueAzure,
+            ),
           ),
         );
       }
     });
   }
+
   GoogleMapController? mapController;
   Set<Marker> _markers = {};
   LatLng? _currentPosition;
@@ -111,7 +114,8 @@ class _MapPageState extends State<MapPage> {
         }
       }
     });
-    final existingTargetOnInit = MapNavigationService.instance.focusRequest.value;
+    final existingTargetOnInit =
+        MapNavigationService.instance.focusRequest.value;
     if (existingTargetOnInit != null) {
       if (mapController != null) {
         mapController!.animateCamera(
@@ -143,7 +147,10 @@ class _MapPageState extends State<MapPage> {
     // Listener và giá trị hiện có đã được xử lý ở đầu initState
 
     // Listen to favorite places and render markers
-    _favoriteController = Provider.of<FavoritePlacesController>(context, listen: false);
+    _favoriteController = Provider.of<FavoritePlacesController>(
+      context,
+      listen: false,
+    );
     _favoriteController!.addListener(_updateFavoritePlaceMarkers);
     _updateFavoritePlaceMarkers();
   }
@@ -392,13 +399,33 @@ class _MapPageState extends State<MapPage> {
     );
     final stream = locationRef.onValue;
 
-  _locationStreams[friendId] = [
+    _locationStreams[friendId] = [
       stream.listen(
         (event) async {
           if (event.snapshot.exists) {
-            final data = event.snapshot.value as Map<dynamic, dynamic>;
-            final lat = data['latitude'] as double?;
-            final lng = data['longitude'] as double?;
+            final raw = event.snapshot.value;
+            if (raw is! Map) {
+              setState(() {
+                _friendMarkers.remove(friendId);
+              });
+              return;
+            }
+            final data = raw as Map;
+            final latRaw = data['latitude'];
+            final lngRaw = data['longitude'];
+            double? lat;
+            double? lng;
+            if (latRaw is num) {
+              lat = latRaw.toDouble();
+            } else if (latRaw is String) {
+              lat = double.tryParse(latRaw);
+            }
+            if (lngRaw is num) {
+              lng = lngRaw.toDouble();
+            } else if (lngRaw is String) {
+              lng = double.tryParse(lngRaw);
+            }
+
             final isOnline = data['isOnline'] as bool? ?? false;
             final isSharing = data['isSharingLocation'] as bool? ?? false;
             final lastUpdated = data['lastUpdated'] as int?;
@@ -431,7 +458,8 @@ class _MapPageState extends State<MapPage> {
               // Tính khoảng cách từ vị trí hiện tại tới bạn bè (km)
               double? distanceKm;
               if (_currentPosition != null) {
-                distanceKm = Geolocator.distanceBetween(
+                distanceKm =
+                    Geolocator.distanceBetween(
                       _currentPosition!.latitude,
                       _currentPosition!.longitude,
                       position.latitude,
@@ -439,8 +467,9 @@ class _MapPageState extends State<MapPage> {
                     ) /
                     1000; // km
               }
-              final String snippetText =
-                  distanceKm != null ? '${distanceKm.toStringAsFixed(1)} km' : '';
+              final String snippetText = distanceKm != null
+                  ? '${distanceKm.toStringAsFixed(1)} km'
+                  : '';
 
               final infoWindow = InfoWindow(
                 title: displayName,
@@ -516,7 +545,9 @@ class _MapPageState extends State<MapPage> {
 
     final from = _friendLastPositions[friendId] ?? existing.position;
     final totalSteps = steps.clamp(5, 60);
-    final stepDuration = Duration(milliseconds: (durationMs / totalSteps).round());
+    final stepDuration = Duration(
+      milliseconds: (durationMs / totalSteps).round(),
+    );
 
     // Hủy animation trước đó nếu có
     _friendMoveTimers[friendId]?.cancel();
@@ -525,7 +556,8 @@ class _MapPageState extends State<MapPage> {
       currentStep++;
       final t = currentStep / totalSteps;
       final double lat = from.latitude + (newPos.latitude - from.latitude) * t;
-      final double lng = from.longitude + (newPos.longitude - from.longitude) * t;
+      final double lng =
+          from.longitude + (newPos.longitude - from.longitude) * t;
       final LatLng interpolated = LatLng(lat, lng);
 
       // Giữ nguyên icon và markerId
@@ -597,7 +629,8 @@ class _MapPageState extends State<MapPage> {
         try {
           // Nếu đang có yêu cầu focus đến địa điểm khác, bỏ qua việc
           // dịch camera về vị trí của tôi để tránh ghi đè.
-          final hasFocusTarget = _pendingFocus != null ||
+          final hasFocusTarget =
+              _pendingFocus != null ||
               MapNavigationService.instance.focusRequest.value != null;
           if (!hasFocusTarget) {
             mapController?.animateCamera(
@@ -626,13 +659,16 @@ class _MapPageState extends State<MapPage> {
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
     // Nếu đang có yêu cầu focus, không dịch camera về vị trí hiện tại
-    final hasFocusTarget = _pendingFocus != null ||
+    final hasFocusTarget =
+        _pendingFocus != null ||
         MapNavigationService.instance.focusRequest.value != null;
     if (!hasFocusTarget && _currentPosition != null) {
       mapController?.moveCamera(CameraUpdate.newLatLng(_currentPosition!));
     }
     if (_pendingFocus != null) {
-      mapController?.animateCamera(CameraUpdate.newLatLngZoom(_pendingFocus!, 17));
+      mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_pendingFocus!, 17),
+      );
       _pendingFocus = null;
     }
 
@@ -653,7 +689,8 @@ class _MapPageState extends State<MapPage> {
       // Tính khoảng cách từ vị trí hiện tại tới bạn bè (km)
       double? distanceKm;
       if (_currentPosition != null) {
-        distanceKm = Geolocator.distanceBetween(
+        distanceKm =
+            Geolocator.distanceBetween(
               _currentPosition!.latitude,
               _currentPosition!.longitude,
               friendPos.latitude,
@@ -661,8 +698,9 @@ class _MapPageState extends State<MapPage> {
             ) /
             1000; // km
       }
-      final String snippetText =
-          distanceKm != null ? '${distanceKm.toStringAsFixed(1)} km' : '';
+      final String snippetText = distanceKm != null
+          ? '${distanceKm.toStringAsFixed(1)} km'
+          : '';
       final String displayName = _getDisplayName(friendId, friendEmail);
 
       // Dùng custom marker với avatar bạn bè
@@ -1220,7 +1258,10 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  Future<BitmapDescriptor> _createMarkerFromRandomAvatar(String seed, String label) async {
+  Future<BitmapDescriptor> _createMarkerFromRandomAvatar(
+    String seed,
+    String label,
+  ) async {
     try {
       // Tạm thời: dùng avatar mặc định (chữ cái) để tránh lỗi parser SVG.
       // Khi cần hiển thị đúng random_avatar, sẽ tích hợp render SVG tương thích.
@@ -1242,7 +1283,9 @@ class _MapPageState extends State<MapPage> {
       final request = await httpClient.getUrl(Uri.parse(imageUrl));
       final response = await request.close();
       if (response.statusCode == 200) {
-        final Uint8List bytes = await consolidateHttpClientResponseBytes(response);
+        final Uint8List bytes = await consolidateHttpClientResponseBytes(
+          response,
+        );
         return await _circularImageMarkerFromBytes(
           bytes,
           size: size,
@@ -1264,7 +1307,12 @@ class _MapPageState extends State<MapPage> {
       // Đọc file và vẽ icon tròn nhỏ, nét
       const double size = 36.0;
       final Uint8List bytes = await File(filePath).readAsBytes();
-      return await _circularImageMarkerFromBytes(bytes, size: size, borderColor: Colors.white, borderWidth: 2.0);
+      return await _circularImageMarkerFromBytes(
+        bytes,
+        size: size,
+        borderColor: Colors.white,
+        borderWidth: 2.0,
+      );
     } catch (e) {
       print('Error creating local file marker: $e');
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
@@ -1306,14 +1354,13 @@ class _MapPageState extends State<MapPage> {
         textDirection: TextDirection.ltr,
       );
       tp.layout();
-      tp.paint(
-        canvas,
-        Offset((size - tp.width) / 2, (size - tp.height) / 2),
-      );
+      tp.paint(canvas, Offset((size - tp.width) / 2, (size - tp.height) / 2));
 
       final ui.Picture picture = recorder.endRecording();
       final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-      final ByteData? bd = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? bd = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       return BitmapDescriptor.bytes(bd!.buffer.asUint8List());
     } catch (e) {
       print('Error creating default avatar marker: $e');
@@ -1358,11 +1405,17 @@ class _MapPageState extends State<MapPage> {
         ..color = borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = borderWidth;
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - borderWidth / 2, borderPaint);
+      canvas.drawCircle(
+        Offset(size / 2, size / 2),
+        size / 2 - borderWidth / 2,
+        borderPaint,
+      );
 
       final ui.Picture picture = recorder.endRecording();
       final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
     } catch (e) {
       print('Error creating circular image marker: $e');
@@ -1379,24 +1432,16 @@ class _MapPageState extends State<MapPage> {
     final Paint circlePaint = Paint()
       ..color = Colors.blue
       ..style = PaintingStyle.fill;
-    
-    canvas.drawCircle(
-      Offset(size / 2, size / 2),
-      size / 2 - 2,
-      circlePaint,
-    );
+
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 2, circlePaint);
 
     // Vẽ viền trắng
     final Paint borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
-    
-    canvas.drawCircle(
-      Offset(size / 2, size / 2),
-      size / 2 - 2,
-      borderPaint,
-    );
+
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 2, borderPaint);
 
     // Vẽ chữ cái A
     final textPainter = TextPainter(
@@ -1410,20 +1455,19 @@ class _MapPageState extends State<MapPage> {
       ),
       textDirection: TextDirection.ltr,
     );
-    
+
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(
-        (size - textPainter.width) / 2,
-        (size - textPainter.height) / 2,
-      ),
+      Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
     );
 
     final ui.Picture picture = pictureRecorder.endRecording();
     final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-    final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
     final Uint8List uint8List = byteData!.buffer.asUint8List();
     return BitmapDescriptor.bytes(uint8List);
   }
@@ -1458,8 +1502,9 @@ class _MapPageState extends State<MapPage> {
 
     final ui.Picture picture = recorder.endRecording();
     final ui.Image image = await picture.toImage(size.toInt(), size.toInt());
-    final ByteData? byteData =
-        await image.toByteData(format: ui.ImageByteFormat.png);
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
     final Uint8List uint8List = byteData!.buffer.asUint8List();
     return BitmapDescriptor.bytes(uint8List);
   }
@@ -1536,12 +1581,14 @@ class _MapPageState extends State<MapPage> {
     try {
       _currentRoute = await _locationHistoryService.getCurrentRoute();
       if (_currentRoute != null) {
-        _currentRoutePoints = _currentRoute!.points;
+        // Không tự động resume ghi lộ trình khi mở app
+        // Xóa current route để tránh tự mở
+        await _locationHistoryService.clearCurrentRoute();
+        _currentRoute = null;
+        _currentRoutePoints = [];
         setState(() {
-          _isRecordingRoute = true;
+          _isRecordingRoute = false;
         });
-        // Resume location tracking
-        _startLocationTracking();
       }
     } catch (e) {
       print('Error loading current route: $e');
@@ -1572,12 +1619,24 @@ class _MapPageState extends State<MapPage> {
     final currentPoint = await _locationHistoryService
         .getCurrentLocationPoint();
     if (currentPoint == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể lấy vị trí hiện tại'),
-          backgroundColor: Colors.red,
-        ),
+      // Nếu không lấy được vị trí ban đầu, thử lấy last known; nếu vẫn null, im lặng
+      final last = await Geolocator.getLastKnownPosition();
+      if (last == null) {
+        return;
+      }
+      final fallback = LocationPoint(
+        latitude: last.latitude,
+        longitude: last.longitude,
+        timestamp: DateTime.now(),
+        accuracy: last.accuracy,
+        speed: last.speed,
+        altitude: last.altitude,
       );
+      setState(() {
+        _isRecordingRoute = true;
+        _currentRoutePoints = [fallback];
+      });
+      _startLocationTracking();
       return;
     }
 
@@ -1660,9 +1719,8 @@ class _MapPageState extends State<MapPage> {
     _routeLocationSubscription?.cancel();
 
     const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 1, // 1 meter
-      timeLimit: Duration(seconds: 30),
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 1,
     );
 
     _routeLocationSubscription =
@@ -1672,14 +1730,35 @@ class _MapPageState extends State<MapPage> {
           },
           onError: (error) {
             print('Location stream error: $error');
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Lỗi theo dõi vị trí: $error'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            // Không hiển thị lỗi khi đứng yên lâu; dùng timer dự phòng
+            _routeRecordingTimer?.cancel();
+            _routeRecordingTimer = Timer.periodic(const Duration(seconds: 10), (
+              _,
+            ) async {
+              try {
+                final pos = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.best,
+                  timeLimit: const Duration(seconds: 10),
+                );
+                _onLocationUpdate(pos);
+              } catch (_) {}
+            });
           },
         );
+
+    // Bắt đầu timer dự phòng nếu stream im lặng
+    _routeRecordingTimer?.cancel();
+    _routeRecordingTimer = Timer.periodic(const Duration(seconds: 10), (
+      _,
+    ) async {
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+          timeLimit: const Duration(seconds: 10),
+        );
+        _onLocationUpdate(pos);
+      } catch (_) {}
+    });
   }
 
   void _onLocationUpdate(Position position) async {
@@ -1755,5 +1834,3 @@ class _MapPageState extends State<MapPage> {
     return _friendNicknames[friendId] ?? friendEmail.split('@')[0];
   }
 }
-
-

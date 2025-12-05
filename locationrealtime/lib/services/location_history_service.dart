@@ -193,14 +193,17 @@ class LocationHistoryService {
   // Tính khoảng cách giữa 2 điểm
   double _distanceBetween(LocationPoint a, LocationPoint b) {
     const double earthRadius = 6371e3; // meters
-    final double lat1 = a.latitude * (3.141592653589793 / 180);
-    final double lat2 = b.latitude * (3.141592653589793 / 180);
-    final double dLat = (b.latitude - a.latitude) * (3.141592653589793 / 180);
-    final double dLon = (b.longitude - a.longitude) * (3.141592653589793 / 180);
+    const double deg2rad = 3.141592653589793 / 180.0;
+    final double lat1 = a.latitude * deg2rad;
+    final double lat2 = b.latitude * deg2rad;
+    final double dLat = (b.latitude - a.latitude) * deg2rad;
+    final double dLon = (b.longitude - a.longitude) * deg2rad;
 
-    final double h =
-        (1 - (cos(dLat) + cos(lat1) * cos(lat2) * (1 - cos(dLon)))) / 2;
-    final double c = 2 * asin(min(1, sqrt(h)));
+    final double sinDLat = sin(dLat / 2);
+    final double sinDLon = sin(dLon / 2);
+    double h = sinDLat * sinDLat + cos(lat1) * cos(lat2) * sinDLon * sinDLon;
+    h = h.clamp(0.0, 1.0);
+    final double c = 2 * asin(sqrt(h));
     return earthRadius * c / 1000; // km
   }
 
