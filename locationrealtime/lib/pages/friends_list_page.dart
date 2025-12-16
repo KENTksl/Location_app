@@ -10,6 +10,8 @@ import 'friend_search_page.dart';
 import 'user_profile_page.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'chat_page.dart';
+import 'group_chat_page.dart';
+import '../services/group_chat_service.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'main_navigation_page.dart'; // Added import for MainNavigationPage
 import '../services/unread_message_service.dart';
@@ -45,6 +47,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
   // Unread message service
   final UnreadMessageService _unreadMessageService = UnreadMessageService();
   final Map<String, int> _unreadCounts = {};
+  // Groups
+  List<Map<String, dynamic>> _groups = [];
+  bool _isGroupsLoading = true;
+  final Map<String, StreamSubscription> _groupMessageSubscriptions = {};
+  final Map<String, String> _userEmailCache = {};
+  final Map<String, StreamSubscription> _groupMetaSubscriptions = {};
 
   // Hiển thị hộp thoại xác nhận xóa kết bạn
   void _showDeleteFriendDialog(Map<String, dynamic> friend) {
@@ -125,6 +133,8 @@ class _FriendsListPageState extends State<FriendsListPage> {
     _startDistanceUpdateTimer();
     _loadNicknames();
     _listenToUnreadMessages();
+    _loadGroups();
+    _listenToGroupsChanges();
   }
 
   @override
@@ -134,6 +144,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
       subscription.cancel();
     }
     for (var subscription in _friendLocationSubscriptions.values) {
+      subscription.cancel();
+    }
+    for (var subscription in _groupMessageSubscriptions.values) {
+      subscription.cancel();
+    }
+    for (var subscription in _groupMetaSubscriptions.values) {
       subscription.cancel();
     }
     _distanceUpdateTimer?.cancel();
@@ -285,6 +301,772 @@ class _FriendsListPageState extends State<FriendsListPage> {
     });
 
     _friendAvatarSubscriptions[friendId] = subscription;
+  }
+
+  Future<void> _loadGroups() async {
+    final service = GroupChatService();
+    final groups = await service.getUserGroups();
+    // fetch last message for each group
+    final result = <Map<String, dynamic>>[];
+    for (final g in groups) {
+      final last = await service.getLastMessage(g['id'] as String);
+      final pinned = await service.isGroupPinned(g['id'] as String);
+      String? senderLabel;
+      if (last != null && (last.from).isNotEmpty) {
+        try {
+          final usnap = await FirebaseDatabase.instance
+              .ref('users/${last.from}')
+              .get();
+          senderLabel = usnap.child('email').value?.toString() ?? last.from;
+        } catch (_) {
+          senderLabel = last.from;
+        }
+      } else if (last != null && (last.text).isNotEmpty) {
+        senderLabel = 'Hệ thống';
+      }
+      result.add({
+        'id': g['id'],
+        'name': g['name'],
+        'members': g['members'],
+        'lastText': last?.text ?? 'Chưa có tin nhắn',
+        'lastTime': last?.timestamp,
+        'pinned': pinned,
+        'lastSender': senderLabel,
+      });
+    }
+    if (mounted) {
+      setState(() {
+        result.sort((a, b) {
+          final ap = (a['pinned'] as bool?) == true;
+          final bp = (b['pinned'] as bool?) == true;
+          if (ap && !bp) return -1;
+          if (!ap && bp) return 1;
+          final at = (a['lastTime'] as int?) ?? 0;
+          final bt = (b['lastTime'] as int?) ?? 0;
+          return bt.compareTo(at);
+        });
+        _groups = result;
+        _isGroupsLoading = false;
+      });
+      _setupGroupMessageListeners(
+        _groups.map((e) => e['id'] as String).toList(),
+      );
+      _setupGroupMetaListeners(_groups.map((e) => e['id'] as String).toList());
+    }
+  }
+
+  void _listenToGroupsChanges() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final ref = FirebaseDatabase.instance.ref('users/${user.uid}/groups');
+    ref.onValue.listen((event) {
+      if (mounted) {
+        _loadGroups();
+      }
+    });
+  }
+
+  void _setupGroupMessageListeners(List<String> groupIds) {
+    final idsSet = groupIds.toSet();
+    for (final entry in _groupMessageSubscriptions.entries.toList()) {
+      if (!idsSet.contains(entry.key)) {
+        entry.value.cancel();
+        _groupMessageSubscriptions.remove(entry.key);
+      }
+    }
+    for (final gid in groupIds) {
+      if (_groupMessageSubscriptions.containsKey(gid)) continue;
+      final sub = FirebaseDatabase.instance
+          .ref('group_chats/$gid/messages')
+          .onValue
+          .listen((event) async {
+            final data = event.snapshot.value as List?;
+            Map<dynamic, dynamic>? last;
+            if (data != null && data.isNotEmpty) {
+              for (int i = data.length - 1; i >= 0; i--) {
+                final v = data[i];
+                if (v is Map) {
+                  last = v;
+                  break;
+                }
+              }
+            }
+            String lastText = 'Chưa có tin nhắn';
+            int? lastTime;
+            String? lastSender;
+            if (last != null) {
+              final m = Map<String, dynamic>.from(last!);
+              lastText =
+                  m['text']?.toString() ??
+                  (m['type']?.toString() == 'system'
+                      ? (m['text']?.toString() ?? 'Hệ thống')
+                      : '');
+              lastTime = (m['timestamp'] is int)
+                  ? m['timestamp'] as int
+                  : int.tryParse('${m['timestamp']}');
+              final from = m['from']?.toString();
+              if (from != null && from.isNotEmpty) {
+                lastSender = _userEmailCache[from];
+                if (lastSender == null) {
+                  try {
+                    final usnap = await FirebaseDatabase.instance
+                        .ref('users/$from')
+                        .get();
+                    lastSender = usnap.child('email').value?.toString() ?? from;
+                    _userEmailCache[from] = lastSender!;
+                  } catch (_) {
+                    lastSender = from;
+                  }
+                }
+              } else {
+                lastSender = 'Hệ thống';
+              }
+            }
+            if (!mounted) return;
+            setState(() {
+              final idx = _groups.indexWhere((g) => g['id'] == gid);
+              if (idx != -1) {
+                _groups[idx]['lastText'] = lastText;
+                _groups[idx]['lastTime'] = lastTime;
+                _groups[idx]['lastSender'] = lastSender;
+                _groups.sort((a, b) {
+                  final ap = (a['pinned'] as bool?) == true;
+                  final bp = (b['pinned'] as bool?) == true;
+                  if (ap && !bp) return -1;
+                  if (!ap && bp) return 1;
+                  final at = (a['lastTime'] as int?) ?? 0;
+                  final bt = (b['lastTime'] as int?) ?? 0;
+                  return bt.compareTo(at);
+                });
+              }
+            });
+          });
+      _groupMessageSubscriptions[gid] = sub;
+    }
+  }
+
+  void _setupGroupMetaListeners(List<String> groupIds) {
+    final idsSet = groupIds.toSet();
+    for (final entry in _groupMetaSubscriptions.entries.toList()) {
+      if (!idsSet.contains(entry.key)) {
+        entry.value.cancel();
+        _groupMetaSubscriptions.remove(entry.key);
+      }
+    }
+    for (final gid in groupIds) {
+      if (_groupMetaSubscriptions.containsKey(gid)) continue;
+      final sub = FirebaseDatabase.instance
+          .ref('group_chats/$gid')
+          .onValue
+          .listen((event) {
+            if (!mounted) return;
+            if (!event.snapshot.exists || event.snapshot.value is! Map) {
+              setState(() {
+                _groups.removeWhere((g) => g['id'] == gid);
+              });
+              // Hủy các subscriptions liên quan đến nhóm đã bị xoá
+              _groupMetaSubscriptions.remove(gid)?.cancel();
+              _groupMessageSubscriptions.remove(gid)?.cancel();
+              return;
+            }
+            final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+            final rawName = data['name'];
+            final newName = rawName is String ? rawName : rawName?.toString();
+            final createdBy = data['createdBy']?.toString();
+            final membersRaw = data['members'];
+            final members = (membersRaw is Map)
+                ? Map<String, bool>.from(membersRaw as Map)
+                : <String, bool>{};
+            setState(() {
+              final idx = _groups.indexWhere((g) => g['id'] == gid);
+              if (idx != -1) {
+                if (data.containsKey('name') &&
+                    newName != null &&
+                    newName.trim().isNotEmpty) {
+                  _groups[idx]['name'] = newName.trim();
+                }
+                if (data.containsKey('createdBy') && createdBy != null) {
+                  _groups[idx]['createdBy'] = createdBy;
+                }
+                if (data.containsKey('members') && members.isNotEmpty) {
+                  _groups[idx]['members'] = members;
+                }
+              }
+            });
+          });
+      _groupMetaSubscriptions[gid] = sub;
+    }
+  }
+
+  Widget _buildGroupSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.groups_rounded, color: Color(0xFF667eea)),
+              const SizedBox(width: 8),
+              const Text(
+                'Tin nhắn nhóm',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1e293b),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _openCreateGroupSheet,
+                child: const Text('Tạo nhóm'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 140,
+            child: _isGroupsLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _groups.isEmpty
+                ? const Center(child: Text('Chưa có nhóm'))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _groups.length,
+                    itemBuilder: (context, index) {
+                      final g = _groups[index];
+                      final nameRaw = g['name'] as String?;
+                      final name = (nameRaw == null || nameRaw.trim().isEmpty)
+                          ? 'Nhóm'
+                          : nameRaw;
+                      final lastText = g['lastText'] as String? ?? '';
+                      final members = Map<String, bool>.from(
+                        (g['members'] as Map),
+                      );
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => GroupChatPage(
+                                groupId: g['id'] as String,
+                                groupName: name,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 220,
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  if ((g['pinned'] as bool?) == true)
+                                    const Icon(
+                                      Icons.push_pin_rounded,
+                                      size: 16,
+                                      color: Color(0xFFf59e0b),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1e293b),
+                                      ),
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    padding: EdgeInsets.zero,
+                                    onSelected: (value) async {
+                                      final svc = GroupChatService();
+                                      final id = g['id'] as String;
+                                      final currentUid = FirebaseAuth
+                                          .instance
+                                          .currentUser
+                                          ?.uid;
+                                      final isLeader =
+                                          g['createdBy']?.toString() ==
+                                          (currentUid ?? '');
+                                      if (value == 'pin') {
+                                        await svc.setGroupPinned(id, true);
+                                        ToastService.show(
+                                          context,
+                                          message: 'Đã ghim cuộc trò chuyện',
+                                          type: AppToastType.success,
+                                        );
+                                        await _loadGroups();
+                                      } else if (value == 'unpin') {
+                                        await svc.setGroupPinned(id, false);
+                                        ToastService.show(
+                                          context,
+                                          message: 'Đã bỏ ghim cuộc trò chuyện',
+                                          type: AppToastType.success,
+                                        );
+                                        await _loadGroups();
+                                      } else if (value == 'rename') {
+                                        final controller =
+                                            TextEditingController(text: name);
+                                        if (!mounted) return;
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) {
+                                            return AlertDialog(
+                                              title: const Text('Đổi tên nhóm'),
+                                              content: TextField(
+                                                controller: controller,
+                                                decoration:
+                                                    const InputDecoration(
+                                                      hintText: 'Tên nhóm mới',
+                                                    ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                  child: const Text('Hủy'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    final newName = controller
+                                                        .text
+                                                        .trim();
+                                                    if (newName.isEmpty) {
+                                                      return;
+                                                    }
+                                                    final ok = await svc
+                                                        .renameGroup(
+                                                          id,
+                                                          newName,
+                                                        );
+                                                    Navigator.of(ctx).pop();
+                                                    if (ok) {
+                                                      ToastService.show(
+                                                        context,
+                                                        message:
+                                                            'Đã đổi tên nhóm',
+                                                        type: AppToastType
+                                                            .success,
+                                                      );
+                                                      await _loadGroups();
+                                                    } else {
+                                                      ToastService.show(
+                                                        context,
+                                                        message:
+                                                            'Bạn không phải trưởng nhóm',
+                                                        type:
+                                                            AppToastType.error,
+                                                      );
+                                                    }
+                                                  },
+                                                  child: const Text('Đổi tên'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      } else if (value == 'view_members') {
+                                        final members = await svc
+                                            .getMemberDetails(id);
+                                        if (!mounted) return;
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                'Thành viên nhóm',
+                                              ),
+                                              content: SizedBox(
+                                                width: double.maxFinite,
+                                                child: ListView.builder(
+                                                  shrinkWrap: true,
+                                                  itemCount: members.length,
+                                                  itemBuilder: (ctx, i) {
+                                                    final m = members[i];
+                                                    final email =
+                                                        (m['email']
+                                                            as String?) ??
+                                                        '';
+                                                    final avatarUrl =
+                                                        m['avatarUrl']
+                                                            as String?;
+                                                    final canKick =
+                                                        isLeader &&
+                                                        m['id'] != currentUid;
+                                                    return ListTile(
+                                                      leading:
+                                                          _buildFriendAvatar(
+                                                            avatarUrl,
+                                                            email,
+                                                          ),
+                                                      title: Text(
+                                                        email.split('@')[0],
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      subtitle: Text(
+                                                        email,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      trailing: canKick
+                                                          ? TextButton(
+                                                              onPressed: () async {
+                                                                final ok = await svc
+                                                                    .removeMember(
+                                                                      id,
+                                                                      m['id']
+                                                                          as String,
+                                                                    );
+                                                                Navigator.of(
+                                                                  ctx,
+                                                                ).pop();
+                                                                if (ok) {
+                                                                  ToastService.show(
+                                                                    context,
+                                                                    message:
+                                                                        'Đã đuổi thành viên',
+                                                                    type: AppToastType
+                                                                        .success,
+                                                                  );
+                                                                  await _loadGroups();
+                                                                } else {
+                                                                  ToastService.show(
+                                                                    context,
+                                                                    message:
+                                                                        'Bạn không phải trưởng nhóm',
+                                                                    type: AppToastType
+                                                                        .error,
+                                                                  );
+                                                                }
+                                                              },
+                                                              child: const Text(
+                                                                'Đuổi',
+                                                                style: TextStyle(
+                                                                  color: Color(
+                                                                    0xFFdc2626,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            )
+                                                          : null,
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                  child: const Text('Đóng'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      } else if (value == 'transfer') {
+                                        final members = await svc
+                                            .getMemberDetails(id);
+                                        final candidates = members
+                                            .where((m) => m['id'] != currentUid)
+                                            .toList();
+                                        if (!mounted) return;
+                                        showDialog(
+                                          context: context,
+                                          builder: (dctx) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                'Chọn người nhận chìa khóa',
+                                              ),
+                                              content: SizedBox(
+                                                width: double.maxFinite,
+                                                child: ListView.builder(
+                                                  shrinkWrap: true,
+                                                  itemCount: candidates.length,
+                                                  itemBuilder: (ctx2, i) {
+                                                    final m = candidates[i];
+                                                    final email =
+                                                        (m['email']
+                                                            as String?) ??
+                                                        m['id'];
+                                                    final avatarUrl =
+                                                        m['avatarUrl']
+                                                            as String?;
+                                                    final uid =
+                                                        m['id'] as String;
+                                                    return ListTile(
+                                                      leading:
+                                                          _buildFriendAvatar(
+                                                            avatarUrl,
+                                                            email ?? uid,
+                                                          ),
+                                                      title: Text(
+                                                        (email ?? uid).split(
+                                                          '@',
+                                                        )[0],
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      subtitle: Text(
+                                                        email ?? uid,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      onTap: () async {
+                                                        final ok = await svc
+                                                            .transferLeadership(
+                                                              id,
+                                                              uid,
+                                                            );
+                                                        Navigator.of(
+                                                          dctx,
+                                                        ).pop();
+                                                        if (ok) {
+                                                          ToastService.show(
+                                                            context,
+                                                            message:
+                                                                'Đã chuyển trưởng nhóm',
+                                                            type: AppToastType
+                                                                .success,
+                                                          );
+                                                          await _loadGroups();
+                                                        } else {
+                                                          ToastService.show(
+                                                            context,
+                                                            message:
+                                                                'Không thể chuyển trưởng nhóm',
+                                                            type: AppToastType
+                                                                .error,
+                                                          );
+                                                        }
+                                                      },
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(dctx).pop(),
+                                                  child: const Text('Đóng'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      } else if (value == 'dissolve') {
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (dctx) {
+                                            return AlertDialog(
+                                              title: const Text(
+                                                'Xác nhận tan rã nhóm',
+                                              ),
+                                              content: const Text(
+                                                'Tất cả thành viên sẽ bị xóa khỏi nhóm. Bạn có chắc?',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    dctx,
+                                                  ).pop(false),
+                                                  child: const Text('Hủy'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(
+                                                    dctx,
+                                                  ).pop(true),
+                                                  child: const Text('Tan rã'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                        if (confirmed == true) {
+                                          final ok = await svc.dissolveGroup(
+                                            id,
+                                          );
+                                          if (ok) {
+                                            ToastService.show(
+                                              context,
+                                              message: 'Nhóm đã tan rã',
+                                              type: AppToastType.success,
+                                            );
+                                            await _loadGroups();
+                                          } else {
+                                            ToastService.show(
+                                              context,
+                                              message: 'Không thể tan rã nhóm',
+                                              type: AppToastType.error,
+                                            );
+                                          }
+                                        }
+                                      } else if (value == 'leave') {
+                                        final ok = await svc.leaveGroup(id);
+                                        if (ok) {
+                                          ToastService.show(
+                                            context,
+                                            message: 'Đã rời cuộc trò chuyện',
+                                            type: AppToastType.success,
+                                          );
+                                          await _loadGroups();
+                                        } else {
+                                          ToastService.show(
+                                            context,
+                                            message:
+                                                'Bạn là trưởng nhóm. Hãy chuyển nhượng chủ nhóm.',
+                                            type: AppToastType.warning,
+                                          );
+                                        }
+                                      }
+                                    },
+                                    itemBuilder: (ctx) => [
+                                      PopupMenuItem<String>(
+                                        value: ((g['pinned'] as bool?) == true)
+                                            ? 'unpin'
+                                            : 'pin',
+                                        child: Text(
+                                          ((g['pinned'] as bool?) == true)
+                                              ? 'Bỏ ghim'
+                                              : 'Ghim cuộc trò chuyện',
+                                        ),
+                                      ),
+                                      const PopupMenuDivider(),
+                                      if ((g['createdBy']?.toString() ?? '') ==
+                                          (FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid ??
+                                              ''))
+                                        const PopupMenuItem<String>(
+                                          value: 'rename',
+                                          child: Text('Đổi tên nhóm'),
+                                        ),
+                                      if ((g['createdBy']?.toString() ?? '') ==
+                                          (FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid ??
+                                              ''))
+                                        const PopupMenuDivider(),
+                                      const PopupMenuItem<String>(
+                                        value: 'view_members',
+                                        child: Text('Xem thành viên'),
+                                      ),
+                                      const PopupMenuDivider(),
+                                      if ((g['createdBy']?.toString() ?? '') !=
+                                          (FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid ??
+                                              ''))
+                                        const PopupMenuItem<String>(
+                                          value: 'leave',
+                                          child: Text('Rời cuộc trò chuyện'),
+                                        ),
+                                      if ((g['createdBy']?.toString() ?? '') ==
+                                          (FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid ??
+                                              ''))
+                                        const PopupMenuItem<String>(
+                                          value: 'transfer',
+                                          child: Text(
+                                            'Chuyển nhượng trưởng nhóm',
+                                          ),
+                                        ),
+                                      if ((g['createdBy']?.toString() ?? '') ==
+                                          (FirebaseAuth
+                                                  .instance
+                                                  .currentUser
+                                                  ?.uid ??
+                                              ''))
+                                        const PopupMenuItem<String>(
+                                          value: 'dissolve',
+                                          child: Text('Tan rã nhóm'),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                (g['lastSender'] != null &&
+                                        (g['lastSender'] as String).isNotEmpty)
+                                    ? '${g['lastSender']}: $lastText'
+                                    : '$lastText',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.person_rounded,
+                                    size: 14,
+                                    color: Color(0xFF6b7280),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${members.length} thành viên',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6b7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadFriendRequests() async {
@@ -559,7 +1341,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
           });
           return;
         }
-        final data = raw as Map;
+        final data = raw;
         final latRaw = data['latitude'];
         final lngRaw = data['longitude'];
         double? lat;
@@ -665,6 +1447,7 @@ class _FriendsListPageState extends State<FriendsListPage> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         if (_requests.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.all(8),
@@ -796,9 +1579,12 @@ class _FriendsListPageState extends State<FriendsListPage> {
                             horizontal: 20,
                             vertical: 16,
                           ),
-                          itemCount: _filteredFriends.length,
+                          itemCount: _filteredFriends.length + 1,
                           itemBuilder: (context, index) {
-                            final friend = _filteredFriends[index];
+                            if (index == 0) {
+                              return _buildGroupSection();
+                            }
+                            final friend = _filteredFriends[index - 1];
                             return Container(
                               // Compact height ~20% smaller via spacing
                               margin: EdgeInsets.only(
@@ -1315,6 +2101,151 @@ class _FriendsListPageState extends State<FriendsListPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _openCreateGroupSheet() {
+    final selected = <String>{};
+    final nameController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      child: const Text(
+                        'Tạo nhóm chat',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Tên nhóm...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _friends.length,
+                        itemBuilder: (context, index) {
+                          final f = _friends[index];
+                          final id = f['id'] as String;
+                          final title = _getDisplayName(f);
+                          final email = f['email'] as String;
+                          final checked = selected.contains(id);
+                          return ListTile(
+                            leading: _buildFriendAvatar(f['avatarUrl'], email),
+                            title: Text(title),
+                            subtitle: Text(email),
+                            trailing: Checkbox(
+                              value: checked,
+                              onChanged: (v) {
+                                setModalState(() {
+                                  if (v == true) {
+                                    selected.add(id);
+                                  } else {
+                                    selected.remove(id);
+                                  }
+                                });
+                              },
+                            ),
+                            onTap: () {
+                              setModalState(() {
+                                if (checked) {
+                                  selected.remove(id);
+                                } else {
+                                  selected.add(id);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) {
+                            ToastService.show(
+                              context,
+                              message: 'Vui lòng nhập tên nhóm',
+                              type: AppToastType.warning,
+                            );
+                            return;
+                          }
+                          if (selected.isEmpty) {
+                            ToastService.show(
+                              context,
+                              message: 'Hãy chọn ít nhất 1 bạn',
+                              type: AppToastType.warning,
+                            );
+                            return;
+                          }
+                          final service = GroupChatService();
+                          final groupId = await service.createGroup(
+                            name: name,
+                            memberIds: selected.toList(),
+                          );
+                          if (groupId != null && mounted) {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GroupChatPage(
+                                  groupId: groupId,
+                                  groupName: name,
+                                ),
+                              ),
+                            );
+                          } else {
+                            ToastService.show(
+                              context,
+                              message: 'Không thể tạo nhóm',
+                              type: AppToastType.error,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF667eea),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Tạo nhóm'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

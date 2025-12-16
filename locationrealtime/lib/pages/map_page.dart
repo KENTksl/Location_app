@@ -13,13 +13,10 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter/foundation.dart'
     show consolidateHttpClientResponseBytes;
-import 'package:flutter_svg/flutter_svg.dart' as svg;
 import '../models/location_history.dart';
 import '../services/location_history_service.dart';
-import '../services/background_location_service.dart';
 import 'location_history_page.dart';
 import '../theme.dart';
 import '../widgets/skeletons.dart';
@@ -302,7 +299,7 @@ class _MapPageState extends State<MapPage> {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFF10b981).withOpacity(0.1),
+        color: const Color(0xFF10b981).withValues(alpha: 0.1),
         shape: BoxShape.circle,
         border: Border.all(color: const Color(0xFF10b981), width: 2),
       ),
@@ -410,7 +407,7 @@ class _MapPageState extends State<MapPage> {
               });
               return;
             }
-            final data = raw as Map;
+            final data = raw;
             final latRaw = data['latitude'];
             final lngRaw = data['longitude'];
             double? lat;
@@ -979,7 +976,10 @@ class _MapPageState extends State<MapPage> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.transparent,
+                  ],
                 ),
               ),
               child: Row(
@@ -987,11 +987,11 @@ class _MapPageState extends State<MapPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1016,11 +1016,11 @@ class _MapPageState extends State<MapPage> {
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1085,11 +1085,11 @@ class _MapPageState extends State<MapPage> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
+                  color: Colors.white.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 5),
                     ),
@@ -1100,7 +1100,7 @@ class _MapPageState extends State<MapPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF667eea).withOpacity(0.1),
+                        color: const Color(0xFF667eea).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1151,7 +1151,7 @@ class _MapPageState extends State<MapPage> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 5),
                     ),
@@ -1162,7 +1162,7 @@ class _MapPageState extends State<MapPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1219,12 +1219,12 @@ class _MapPageState extends State<MapPage> {
         child: Container(
           decoration: BoxDecoration(
             color: isActive
-                ? AppTheme.primaryColor.withOpacity(0.22)
-                : Colors.white.withOpacity(0.14),
+                ? AppTheme.primaryColor.withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.10),
+                color: Colors.black.withValues(alpha: 0.10),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1637,9 +1637,9 @@ class _MapPageState extends State<MapPage> {
           .get();
       final v = snap.value;
       bool isPro = false;
-      if (v is bool)
+      if (v is bool) {
         isPro = v;
-      else if (v is String)
+      } else if (v is String)
         isPro = v.toLowerCase() == 'true';
       else if (v is num)
         isPro = v != 0;

@@ -353,47 +353,52 @@ class _ChatPageState extends State<ChatPage> {
       }
       showModalBottomSheet(
         context: context,
+        isScrollControlled: true,
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         builder: (ctx) {
+          final maxH = MediaQuery.of(ctx).size.height * 0.6;
           return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                const Text(
-                  'Chia sẻ địa điểm yêu thích',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: places.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, i) {
-                      final p = places[i];
-                      return ListTile(
-                        leading: const Icon(
-                          Icons.place_rounded,
-                          color: Colors.deepPurple,
-                        ),
-                        title: Text(p.name),
-                        subtitle: Text(
-                          p.address,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _sendFavoritePlaceMessage(p);
-                        },
-                      );
-                    },
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Chia sẻ địa điểm yêu thích',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                ),
-                const SizedBox(height: 8),
-              ],
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: places.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final p = places[i];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.place_rounded,
+                            color: Colors.deepPurple,
+                          ),
+                          title: Text(p.name),
+                          subtitle: Text(
+                            p.address,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _sendFavoritePlaceMessage(p);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           );
         },
@@ -492,14 +497,14 @@ class _ChatPageState extends State<ChatPage> {
     final dynamic type = msg['type'];
     final dynamic placeDyn = msg['place'];
     if ((type == 'favorite_place' || placeDyn is Map) && placeDyn is Map) {
-      final Map place = placeDyn as Map;
+      final Map place = placeDyn;
       return _buildFavoritePlaceMessage(place, isMe, time, avatarUrl, label);
     }
 
     // Hiển thị tin nhắn chia sẻ lộ trình
     final dynamic routeDataDyn = msg['routeData'];
     if (type == 'route_share' && routeDataDyn is Map) {
-      final Map routeData = Map<String, dynamic>.from(routeDataDyn as Map);
+      final Map routeData = Map<String, dynamic>.from(routeDataDyn);
       return _buildRouteMessage(routeData, isMe, time, avatarUrl, label);
     }
 
@@ -1133,39 +1138,52 @@ class _ChatPageState extends State<ChatPage> {
   void _openShareMenuSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       builder: (ctx) {
+        final maxH = MediaQuery.of(ctx).size.height * 0.6;
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              const Text(
-                'Chia sẻ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Chia sẻ',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.place_rounded,
+                      color: Colors.blue,
+                    ),
+                    title: const Text('Địa điểm yêu thích'),
+                    subtitle: const Text('Gửi địa điểm bạn đã lưu'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openShareFavoritePlaceSheet();
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.alt_route_rounded,
+                      color: Colors.deepPurple,
+                    ),
+                    title: const Text('Lộ trình đã ghi'),
+                    subtitle: const Text('Gửi lộ trình cho bạn bè xem'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openShareRouteSheet();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.place_rounded, color: Colors.blue),
-                title: const Text('Địa điểm yêu thích'),
-                subtitle: const Text('Gửi địa điểm bạn đã lưu'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openShareFavoritePlaceSheet();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.alt_route_rounded, color: Colors.deepPurple),
-                title: const Text('Lộ trình đã ghi'),
-                subtitle: const Text('Gửi lộ trình cho bạn bè xem'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openShareRouteSheet();
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
         );
       },
@@ -1202,7 +1220,10 @@ class _ChatPageState extends State<ChatPage> {
       routeById[r.id] = r;
     }
     final routes = routeById.values.toList()
-      ..sort((a, b) => (b.endTime ?? b.startTime).compareTo(a.endTime ?? a.startTime));
+      ..sort(
+        (a, b) =>
+            (b.endTime ?? b.startTime).compareTo(a.endTime ?? a.startTime),
+      );
 
     if (routes.isEmpty) {
       ToastService.show(
@@ -1215,12 +1236,14 @@ class _ChatPageState extends State<ChatPage> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       builder: (ctx) {
+        final maxH = MediaQuery.of(ctx).size.height * 0.6;
         return SafeArea(
-          child: SizedBox(
-            height: 420,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
             child: Column(
               children: [
                 const SizedBox(height: 12),
@@ -1239,11 +1262,17 @@ class _ChatPageState extends State<ChatPage> {
                       final hours = duration.inHours;
                       final minutes = duration.inMinutes % 60;
                       final distanceKm = r.totalDistance;
-                      final timeStr = DateFormat('dd/MM/yyyy HH:mm').format(r.startTime);
+                      final timeStr = DateFormat(
+                        'dd/MM/yyyy HH:mm',
+                      ).format(r.startTime);
                       return ListTile(
                         leading: const Icon(Icons.alt_route_rounded),
-                        title: Text(r.name.isNotEmpty ? r.name : 'Lộ trình ${r.id}'),
-                        subtitle: Text('$timeStr • ${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m'),
+                        title: Text(
+                          r.name.isNotEmpty ? r.name : 'Lộ trình ${r.id}',
+                        ),
+                        subtitle: Text(
+                          '$timeStr • ${distanceKm.toStringAsFixed(2)} km • ${hours}h${minutes}m',
+                        ),
                         trailing: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(ctx);
@@ -1327,8 +1356,9 @@ class _ChatPageState extends State<ChatPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe)
@@ -1338,8 +1368,9 @@ class _ChatPageState extends State<ChatPage> {
             ),
           Flexible(
             child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 InkWell(
                   onTap: () {
@@ -1425,9 +1456,8 @@ class _ChatPageState extends State<ChatPage> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => RouteDetailsPage(
-                                        route: route,
-                                      ),
+                                      builder: (_) =>
+                                          RouteDetailsPage(route: route),
                                     ),
                                   );
                                 },

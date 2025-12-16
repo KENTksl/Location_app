@@ -14,6 +14,7 @@ class ToastService {
     final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
         message: message,
+        backgroundGradient: colors.backgroundGradient,
         background: colors.background,
         shadowColor: colors.shadow,
         icon: icon,
@@ -22,7 +23,7 @@ class ToastService {
 
     // Dùng root overlay để toast hiển thị kể cả khi route hiện tại bị pop ngay sau đó
     final overlay = Overlay.of(context, rootOverlay: true);
-    overlay?.insert(entry);
+    overlay.insert(entry);
 
     Future.delayed(const Duration(milliseconds: 2200), () {
       entry.remove();
@@ -66,7 +67,11 @@ class _ToastColors {
   final LinearGradient? backgroundGradient;
   final Color? background;
   final Color shadow;
-  _ToastColors({this.backgroundGradient, this.background, required this.shadow});
+  _ToastColors({
+    this.backgroundGradient,
+    this.background,
+    required this.shadow,
+  });
 }
 
 class _ToastWidget extends StatefulWidget {
@@ -77,10 +82,9 @@ class _ToastWidget extends StatefulWidget {
   final IconData icon;
 
   const _ToastWidget({
-    super.key,
     required this.message,
-    this.background,
     this.backgroundGradient,
+    this.background,
     required this.shadowColor,
     required this.icon,
   });
@@ -102,12 +106,14 @@ class _ToastWidgetState extends State<_ToastWidget>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     );
-    _slide = Tween<double>(begin: -30, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-    _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _slide = Tween<double>(
+      begin: -30,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _fade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
   }
 
@@ -130,8 +136,10 @@ class _ToastWidgetState extends State<_ToastWidget>
               offset: Offset(0, _slide.value),
               child: Container(
                 margin: const EdgeInsets.only(top: 16),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: widget.background,
                   gradient: widget.backgroundGradient,
@@ -152,8 +160,9 @@ class _ToastWidgetState extends State<_ToastWidget>
                     Flexible(
                       child: Text(
                         widget.message,
-                        style: AppTheme.bodyStyle
-                            .copyWith(color: AppTheme.textPrimaryColor),
+                        style: AppTheme.bodyStyle.copyWith(
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
                     ),
                   ],

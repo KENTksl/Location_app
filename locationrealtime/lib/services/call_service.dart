@@ -3,7 +3,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
-import 'dart:typed_data';
 
 class CallService {
   static final CallService _instance = CallService._internal();
@@ -12,16 +11,16 @@ class CallService {
 
   final FirebaseDatabase _database = FirebaseDatabase.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
-  
+
   // Voice activity detection
   Timer? _voiceActivityTimer;
   bool _isVoiceActive = false;
-  double _audioLevel = 0.0;
-  
+  final double _audioLevel = 0.0;
+
   // Callbacks
   Function(MediaStream)? onLocalStream;
   Function(MediaStream)? onRemoteStream;
@@ -33,14 +32,14 @@ class CallService {
   final Map<String, dynamic> _configuration = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
-    ]
+    ],
   };
 
   final Map<String, dynamic> _constraints = {
     'mandatory': {},
     'optional': [
       {'DtlsSrtpKeyAgreement': true},
-    ]
+    ],
   };
 
   // Initialize WebRTC
@@ -52,10 +51,7 @@ class CallService {
 
   // Request necessary permissions
   Future<void> _requestPermissions() async {
-    await [
-      Permission.camera,
-      Permission.microphone,
-    ].request();
+    await [Permission.camera, Permission.microphone].request();
   }
 
   // Setup peer connection event listeners
@@ -82,18 +78,18 @@ class CallService {
   Future<void> createOffer(String callId) async {
     try {
       print('📞 CallService: Creating offer for call $callId');
-      
+
       await initialize();
-      
+
       // Get local media stream
       _localStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
         'video': false,
       });
-      
+
       onLocalStream?.call(_localStream!);
       _peerConnection?.addStream(_localStream!);
-      
+
       // Start voice activity detection
       _startVoiceActivityDetection();
 
@@ -103,12 +99,9 @@ class CallService {
 
       // Send offer to Firebase
       await _database.ref('calls/$callId').update({
-        'offer': {
-          'type': offer.type,
-          'sdp': offer.sdp,
-        },
+        'offer': {'type': offer.type, 'sdp': offer.sdp},
       });
-      
+
       print('✅ CallService: Offer created and sent to Firebase');
     } catch (e) {
       print('❌ CallService: Error creating offer: $e');
@@ -116,7 +109,10 @@ class CallService {
   }
 
   // Start a call
-  static Future<String?> startCall(String receiverId, String receiverEmail) async {
+  static Future<String?> startCall(
+    String receiverId,
+    String receiverEmail,
+  ) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -151,10 +147,10 @@ class CallService {
       print('📞 CallService: Call data to be sent: $callData');
 
       await FirebaseDatabase.instance.ref('calls/$callId').set(callData);
-      
+
       print('✅ CallService: Call data successfully sent to Firebase');
       print('📞 CallService: Call started successfully with ID: $callId');
-      
+
       return callId;
     } catch (e) {
       print('❌ CallService: Error starting call: $e');
@@ -166,13 +162,13 @@ class CallService {
   Future<void> answerCall(String callId, Map<String, dynamic> offer) async {
     try {
       await initialize();
-      
+
       // Get local media stream
       _localStream = await navigator.mediaDevices.getUserMedia({
         'audio': true,
         'video': false,
       });
-      
+
       onLocalStream?.call(_localStream!);
       _peerConnection?.addStream(_localStream!);
 
@@ -187,10 +183,7 @@ class CallService {
 
       // Send answer to Firebase
       await _database.ref('calls/$callId').update({
-        'answer': {
-          'type': answer.type,
-          'sdp': answer.sdp,
-        },
+        'answer': {'type': answer.type, 'sdp': answer.sdp},
         'status': 'answered',
       });
     } catch (e) {
@@ -205,7 +198,7 @@ class CallService {
       // Find active call
       final callsRef = _database.ref('calls');
       final snapshot = await callsRef.get();
-      
+
       if (snapshot.exists) {
         final calls = snapshot.value as Map<dynamic, dynamic>;
         for (final callId in calls.keys) {
@@ -250,14 +243,19 @@ class CallService {
     // Listen for ICE candidates
     _database.ref('calls').onChildAdded.listen((event) {
       final callId = event.snapshot.key!;
-      _database.ref('calls/$callId/candidates').onChildAdded.listen((candidateEvent) {
-        final candidateData = candidateEvent.snapshot.value as Map<dynamic, dynamic>;
+      _database.ref('calls/$callId/candidates').onChildAdded.listen((
+        candidateEvent,
+      ) {
+        final candidateData =
+            candidateEvent.snapshot.value as Map<dynamic, dynamic>;
         if (candidateData['from'] != user.uid) {
-          _peerConnection?.addCandidate(RTCIceCandidate(
-            candidateData['candidate'],
-            candidateData['sdpMid'],
-            candidateData['sdpMLineIndex'],
-          ));
+          _peerConnection?.addCandidate(
+            RTCIceCandidate(
+              candidateData['candidate'],
+              candidateData['sdpMid'],
+              candidateData['sdpMLineIndex'],
+            ),
+          );
         }
       });
     });
@@ -282,7 +280,7 @@ class CallService {
 
     // Close peer connection
     await _peerConnection?.close();
-    
+
     // Clean up
     _localStream = null;
     _remoteStream = null;
@@ -293,7 +291,7 @@ class CallService {
     if (user != null) {
       final callsRef = _database.ref('calls');
       final snapshot = await callsRef.get();
-      
+
       if (snapshot.exists) {
         final calls = snapshot.value as Map<dynamic, dynamic>;
         for (final callId in calls.keys) {
@@ -335,14 +333,16 @@ class CallService {
   // Voice Activity Detection
   void _startVoiceActivityDetection() {
     _voiceActivityTimer?.cancel();
-    _voiceActivityTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _voiceActivityTimer = Timer.periodic(const Duration(milliseconds: 100), (
+      timer,
+    ) {
       _detectVoiceActivity();
     });
   }
 
   void _detectVoiceActivity() {
     if (_localStream == null) return;
-    
+
     final audioTracks = _localStream!.getAudioTracks();
     if (audioTracks.isNotEmpty && audioTracks[0].enabled) {
       // Real voice activity detection using WebRTC audio analysis
@@ -360,24 +360,27 @@ class CallService {
   void _analyzeAudioLevel(MediaStreamTrack audioTrack) {
     // Since getStats() is not available on MediaStreamTrack directly,
     // we'll use a different approach for voice activity detection
-    
+
     // Check if the audio track is enabled and active
     bool isTrackActive = audioTrack.enabled && audioTrack.kind == 'audio';
-    
+
     if (isTrackActive) {
       // Use a simple heuristic: assume voice activity based on track state
       // In a real implementation, you would need to use WebRTC PeerConnection stats
       // or implement audio analysis using platform-specific methods
-      
+
       final now = DateTime.now().millisecondsSinceEpoch;
       // Create a more realistic pattern: active for 1-2 seconds, then inactive for 1-3 seconds
       final cycle = (now ~/ 1000) % 6; // 6-second cycle
-      bool shouldBeActive = cycle < 2; // Active for first 2 seconds of each cycle
-      
+      bool shouldBeActive =
+          cycle < 2; // Active for first 2 seconds of each cycle
+
       if (shouldBeActive != _isVoiceActive) {
         _isVoiceActive = shouldBeActive;
         onVoiceActivity?.call(_isVoiceActive);
-        print('🎤 Voice Activity: ${_isVoiceActive ? "ACTIVE" : "INACTIVE"} (track-based detection)');
+        print(
+          '🎤 Voice Activity: ${_isVoiceActive ? "ACTIVE" : "INACTIVE"} (track-based detection)',
+        );
       }
     } else {
       // Track is disabled or not audio

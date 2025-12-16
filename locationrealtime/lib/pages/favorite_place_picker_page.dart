@@ -6,19 +6,19 @@ import '../state/favorite_places_controller.dart';
 import '../services/map_navigation_service.dart';
 import '../services/toast_service.dart';
 import '../theme.dart';
-import 'main_navigation_page.dart';
 
 class FavoritePlacePickerPage extends StatefulWidget {
   const FavoritePlacePickerPage({super.key});
 
   @override
-  State<FavoritePlacePickerPage> createState() => _FavoritePlacePickerPageState();
+  State<FavoritePlacePickerPage> createState() =>
+      _FavoritePlacePickerPageState();
 }
 
 class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
   GoogleMapController? _mapController;
   Marker? _marker;
-  LatLng _center = const LatLng(10.8231, 106.6297);
+  final LatLng _center = const LatLng(10.8231, 106.6297);
   bool _saving = false;
 
   @override
@@ -32,7 +32,10 @@ class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
             onMapCreated: (c) => _mapController = c,
             onLongPress: (pos) async {
               setState(() {
-                _marker = Marker(markerId: const MarkerId('fav'), position: pos);
+                _marker = Marker(
+                  markerId: const MarkerId('fav'),
+                  position: pos,
+                );
               });
               await _promptForNameAndSave(pos);
             },
@@ -61,12 +64,19 @@ class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
     final controller = context.read<FavoritePlacesController>();
     final name = await _askForName();
     if (name == null || name.trim().isEmpty) {
-      ToastService.show(context, message: 'Tên địa điểm không được để trống', type: AppToastType.warning);
+      ToastService.show(
+        context,
+        message: 'Tên địa điểm không được để trống',
+        type: AppToastType.warning,
+      );
       return;
     }
     setState(() => _saving = true);
     try {
-      final placemarks = await geo.placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final placemarks = await geo.placemarkFromCoordinates(
+        pos.latitude,
+        pos.longitude,
+      );
       final placeMark = placemarks.isNotEmpty ? placemarks.first : null;
       final address = placeMark != null
           ? [
@@ -74,7 +84,7 @@ class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
               placeMark.subLocality,
               placeMark.locality,
               placeMark.administrativeArea,
-            ].where((e) => e != null && e!.isNotEmpty).join(', ')
+            ].where((e) => e != null && e.isNotEmpty).join(', ')
           : 'Không rõ địa chỉ';
 
       final created = await controller.addPlace(
@@ -91,10 +101,18 @@ class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
           Navigator.of(context).pop(created);
         }
       } else {
-        ToastService.show(context, message: 'Không thể lưu địa điểm', type: AppToastType.error);
+        ToastService.show(
+          context,
+          message: 'Không thể lưu địa điểm',
+          type: AppToastType.error,
+        );
       }
     } catch (e) {
-      ToastService.show(context, message: 'Geocoding lỗi: $e', type: AppToastType.error);
+      ToastService.show(
+        context,
+        message: 'Geocoding lỗi: $e',
+        type: AppToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -113,7 +131,10 @@ class _FavoritePlacePickerPageState extends State<FavoritePlacePickerPage> {
             decoration: const InputDecoration(hintText: 'Nhập tên'),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             TextButton(
               onPressed: () {
                 name = textCtrl.text;

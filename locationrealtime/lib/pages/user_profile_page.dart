@@ -8,8 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:random_avatar/random_avatar.dart';
 import 'dart:io';
-import 'dart:async';
-import 'dart:ui';
 import 'login_page.dart';
 import 'friend_requests_page.dart';
 import 'location_history_page.dart';
@@ -115,9 +113,9 @@ class _UserProfilePageState extends State<UserProfilePage>
           .get();
       final v = initial.value;
       bool active = false;
-      if (v is bool)
+      if (v is bool) {
         active = v;
-      else if (v is String)
+      } else if (v is String)
         active = v.toLowerCase() == 'true';
       else if (v is num)
         active = v != 0;
@@ -130,9 +128,9 @@ class _UserProfilePageState extends State<UserProfilePage>
         .listen((event) {
           final v = event.snapshot.value;
           bool active = false;
-          if (v is bool)
+          if (v is bool) {
             active = v;
-          else if (v is String)
+          } else if (v is String)
             active = v.toLowerCase() == 'true';
           else if (v is num)
             active = v != 0;
@@ -241,8 +239,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                           onTapUp: (_) =>
                               setBSState(() => pressPrimary = false),
                           onTap: () async {
-                            if (Navigator.of(ctx).canPop())
+                            if (Navigator.of(ctx).canPop()) {
                               Navigator.of(ctx).pop();
+                            }
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
@@ -295,8 +294,9 @@ class _UserProfilePageState extends State<UserProfilePage>
                             foregroundColor: const Color(0xFF1e293b),
                           ),
                           onPressed: () {
-                            if (Navigator.of(ctx).canPop())
+                            if (Navigator.of(ctx).canPop()) {
                               Navigator.of(ctx).pop();
+                            }
                           },
                           child: const Text(
                             'Để sau',
